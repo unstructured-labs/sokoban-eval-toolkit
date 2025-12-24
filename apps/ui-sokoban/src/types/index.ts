@@ -24,6 +24,9 @@ export interface SokobanLevel {
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'classic'
 
+// Wall generation algorithm types
+export type WallGeneratorType = 'random' | 'maze' | 'rooms' | 'obstacles'
+
 // Movement
 export type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
 

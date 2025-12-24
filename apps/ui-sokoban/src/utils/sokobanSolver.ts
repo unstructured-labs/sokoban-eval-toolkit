@@ -84,8 +84,8 @@ export function solvePuzzle(level: SokobanLevel, maxNodes = 50000): SolverResult
         // Push is valid - create new box array
         newBoxes = current.boxes.map((b, i) => (i === boxIndex ? newBoxPos : b))
 
-        // Simple deadlock detection: box in corner (not on goal)
-        if (isCornerDeadlock(newBoxPos, level)) continue
+        // Deadlock detection: corner and line deadlocks
+        if (isDeadlock(newBoxPos, level)) continue
       }
 
       const newState: SolverState = {
@@ -185,4 +185,48 @@ function isCornerDeadlock(boxPos: Position, level: SokobanLevel): boolean {
     (wallDown && wallLeft) ||
     (wallDown && wallRight)
   )
+}
+
+/**
+ * Check if a box is in a line deadlock.
+ * A line deadlock occurs when a box is against a wall and there's
+ * no goal anywhere along that wall line.
+ */
+function isLineDeadlock(boxPos: Position, level: SokobanLevel): boolean {
+  // If box is on a goal, it's not a deadlock
+  if (level.terrain[boxPos.y]?.[boxPos.x] === 'goal') {
+    return false
+  }
+
+  // Check if against horizontal wall (above or below)
+  const wallAbove = !isValidCell({ x: boxPos.x, y: boxPos.y - 1 }, level)
+  const wallBelow = !isValidCell({ x: boxPos.x, y: boxPos.y + 1 }, level)
+
+  if (wallAbove || wallBelow) {
+    // Scan the entire row for any goal
+    const row = level.terrain[boxPos.y]
+    if (row) {
+      const hasGoalInRow = row.some((cell) => cell === 'goal')
+      if (!hasGoalInRow) return true
+    }
+  }
+
+  // Check if against vertical wall (left or right)
+  const wallLeft = !isValidCell({ x: boxPos.x - 1, y: boxPos.y }, level)
+  const wallRight = !isValidCell({ x: boxPos.x + 1, y: boxPos.y }, level)
+
+  if (wallLeft || wallRight) {
+    // Scan the entire column for any goal
+    const hasGoalInCol = level.terrain.some((row) => row[boxPos.x] === 'goal')
+    if (!hasGoalInCol) return true
+  }
+
+  return false
+}
+
+/**
+ * Check if a box is in any deadlock state.
+ */
+function isDeadlock(boxPos: Position, level: SokobanLevel): boolean {
+  return isCornerDeadlock(boxPos, level) || isLineDeadlock(boxPos, level)
 }

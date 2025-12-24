@@ -1,5 +1,6 @@
-import type { CellTerrain, Difficulty, Position, SokobanLevel } from '../types'
+import type { CellTerrain, Difficulty, Position, SokobanLevel, WallGeneratorType } from '../types'
 import { solvePuzzle } from './sokobanSolver'
+import { generateWalls } from './wallGenerators'
 
 interface GeneratorOptions {
   width?: number
@@ -9,6 +10,7 @@ interface GeneratorOptions {
   maxSolutionLength?: number
   maxAttempts?: number
   maxSolverNodes?: number
+  wallGenerators?: WallGeneratorType[]
 }
 
 const DEFAULT_OPTIONS: Required<GeneratorOptions> = {
@@ -19,6 +21,7 @@ const DEFAULT_OPTIONS: Required<GeneratorOptions> = {
   maxSolutionLength: 15,
   maxAttempts: 200,
   maxSolverNodes: 50000,
+  wallGenerators: ['random'],
 }
 
 // Difficulty presets
@@ -31,6 +34,7 @@ const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic'>, Required<Genera
     maxSolutionLength: 15,
     maxAttempts: 200,
     maxSolverNodes: 50000,
+    wallGenerators: ['random'],
   },
   medium: {
     width: 9,
@@ -40,6 +44,7 @@ const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic'>, Required<Genera
     maxSolutionLength: 25,
     maxAttempts: 400,
     maxSolverNodes: 100000,
+    wallGenerators: ['random'],
   },
   hard: {
     width: 10,
@@ -49,6 +54,7 @@ const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic'>, Required<Genera
     maxSolutionLength: 40,
     maxAttempts: 600,
     maxSolverNodes: 200000,
+    wallGenerators: ['random'],
   },
 }
 
@@ -56,13 +62,16 @@ const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic'>, Required<Genera
  * Generate a solvable Sokoban puzzle for the specified difficulty.
  *
  * Strategy:
- * 1. Create an open room with walls on the border
+ * 1. Generate walls using the selected algorithm
  * 2. Place goal(s) in valid interior positions
  * 3. For each goal, trace a path backward to place box and ensure push path
  * 4. Place player where they can execute the solution
  * 5. Verify with BFS solver and ensure solution length is within range
  */
-export function generateLevel(difficulty: Exclude<Difficulty, 'classic'>): SokobanLevel {
+export function generateLevel(
+  difficulty: Exclude<Difficulty, 'classic'>,
+  options?: { wallGenerators?: WallGeneratorType[] },
+): SokobanLevel {
   const opts = DIFFICULTY_PRESETS[difficulty]
   const {
     width,
@@ -74,15 +83,21 @@ export function generateLevel(difficulty: Exclude<Difficulty, 'classic'>): Sokob
     maxSolverNodes,
   } = opts
 
+  // Use provided wall generators or default from preset
+  const wallGenerators = options?.wallGenerators ?? opts.wallGenerators
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const result = tryGenerateLevel(width, height, numBoxes)
+    // Pick a random wall generator from the enabled list
+    const generatorType = wallGenerators[Math.floor(Math.random() * wallGenerators.length)]
+
+    const result = tryGenerateLevel(width, height, numBoxes, generatorType)
     if (!result) continue
 
     const candidateLevel: SokobanLevel = {
       ...result,
       id: `${difficulty}-generated-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       difficulty,
-      fileSource: 'generated',
+      fileSource: generatorType === 'random' ? 'generated' : `generated-${generatorType}`,
       puzzleNumber: attempt + 1,
     }
 
@@ -158,28 +173,10 @@ function tryGenerateLevel(
   width: number,
   height: number,
   numBoxes: number,
+  wallGeneratorType: WallGeneratorType = 'random',
 ): Omit<SokobanLevel, 'id' | 'difficulty' | 'fileSource' | 'puzzleNumber' | 'optimalMoves'> | null {
-  // Create terrain with walls on border, floor inside
-  const terrain: CellTerrain[][] = []
-  for (let y = 0; y < height; y++) {
-    const row: CellTerrain[] = []
-    for (let x = 0; x < width; x++) {
-      if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
-        row.push('wall')
-      } else {
-        row.push('floor')
-      }
-    }
-    terrain.push(row)
-  }
-
-  // Add some random internal walls for interest (but not too many)
-  const numWalls = Math.floor(width * height * 0.08)
-  for (let i = 0; i < numWalls; i++) {
-    const x = randomInt(2, width - 3)
-    const y = randomInt(2, height - 3)
-    terrain[y][x] = 'wall'
-  }
+  // Generate terrain using the selected wall generator
+  const { terrain } = generateWalls(wallGeneratorType, { width, height })
 
   // Pick goal positions (interior, not adjacent to border)
   const goals: Position[] = []

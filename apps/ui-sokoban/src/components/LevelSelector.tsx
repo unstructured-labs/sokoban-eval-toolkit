@@ -1,5 +1,7 @@
 import { Button } from '@sokoban-eval-toolkit/ui-library/components/button'
+import { Checkbox } from '@sokoban-eval-toolkit/ui-library/components/checkbox'
 import { Input } from '@sokoban-eval-toolkit/ui-library/components/input'
+import { Label } from '@sokoban-eval-toolkit/ui-library/components/label'
 import {
   Select,
   SelectContent,
@@ -9,11 +11,19 @@ import {
 } from '@sokoban-eval-toolkit/ui-library/components/select'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
 import { DIFFICULTY_LABELS } from '@src/constants'
-import type { Difficulty, SokobanLevel } from '@src/types'
+import type { Difficulty, SokobanLevel, WallGeneratorType } from '@src/types'
 import { generateLevel } from '@src/utils/levelGenerator'
 import { getMediumLevel, getMediumLevelCount, getRandomMediumLevel } from '@src/utils/levelLoader'
 import { ChevronLeft, ChevronRight, Dices, Shuffle } from 'lucide-react'
 import { useCallback, useState } from 'react'
+
+// Wall pattern options with labels
+const WALL_PATTERNS: { type: WallGeneratorType; label: string }[] = [
+  { type: 'random', label: 'Random' },
+  { type: 'maze', label: 'Maze corridors' },
+  { type: 'rooms', label: 'Multi-room' },
+  { type: 'obstacles', label: 'Strategic obstacles' },
+]
 
 // Difficulties that use procedural generation
 const GENERATED_DIFFICULTIES: Exclude<Difficulty, 'classic'>[] = ['easy', 'medium', 'hard']
@@ -36,6 +46,18 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
   const [puzzleNumber, setPuzzleNumber] = useState<number>(1)
   const [error, setError] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [wallPatterns, setWallPatterns] = useState<WallGeneratorType[]>(['random'])
+
+  const toggleWallPattern = (pattern: WallGeneratorType, enabled: boolean) => {
+    setWallPatterns((current) => {
+      if (enabled) {
+        return current.includes(pattern) ? current : [...current, pattern]
+      }
+      // Don't allow removing the last pattern
+      const filtered = current.filter((p) => p !== pattern)
+      return filtered.length > 0 ? filtered : current
+    })
+  }
 
   const classicLevelCount = getMediumLevelCount()
   const isGenerated = GENERATED_DIFFICULTIES.includes(difficulty as Exclude<Difficulty, 'classic'>)
@@ -65,7 +87,9 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
     // Use setTimeout to allow UI to update before potentially slow generation
     setTimeout(() => {
       try {
-        const level = generateLevel(difficulty as Exclude<Difficulty, 'classic'>)
+        const level = generateLevel(difficulty as Exclude<Difficulty, 'classic'>, {
+          wallGenerators: wallPatterns,
+        })
         onLevelLoad(level)
       } catch (err) {
         setError('Failed to generate puzzle')
@@ -74,7 +98,7 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
         setIsGenerating(false)
       }
     }, 10)
-  }, [difficulty, isGenerated, onLevelLoad])
+  }, [difficulty, isGenerated, onLevelLoad, wallPatterns])
 
   return (
     <div className="space-y-3">
@@ -121,15 +145,40 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
 
       {/* Generated difficulty modes */}
       {isGenerated ? (
-        <Button
-          onClick={handleGenerate}
-          disabled={disabled || isGenerating}
-          size="sm"
-          className="w-full h-8 text-xs"
-        >
-          <Dices className="w-3.5 h-3.5 mr-1.5" />
-          {isGenerating ? 'Generating...' : 'Generate Puzzle'}
-        </Button>
+        <>
+          {/* Wall pattern checkboxes */}
+          <div className="space-y-2">
+            <span className="text-xs text-muted-foreground">Wall Patterns</span>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+              {WALL_PATTERNS.map(({ type, label }) => (
+                <div key={type} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`wall-${type}`}
+                    checked={wallPatterns.includes(type)}
+                    onCheckedChange={(checked) => toggleWallPattern(type, checked === true)}
+                    disabled={disabled || isGenerating}
+                  />
+                  <Label
+                    htmlFor={`wall-${type}`}
+                    className="text-xs text-muted-foreground cursor-pointer"
+                  >
+                    {label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            onClick={handleGenerate}
+            disabled={disabled || isGenerating}
+            size="sm"
+            className="w-full h-8 text-xs"
+          >
+            <Dices className="w-3.5 h-3.5 mr-1.5" />
+            {isGenerating ? 'Generating...' : 'Generate Puzzle'}
+          </Button>
+        </>
       ) : (
         <>
           {/* Classic mode - embedded levels */}
