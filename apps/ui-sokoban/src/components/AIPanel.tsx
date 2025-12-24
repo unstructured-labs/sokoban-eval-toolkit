@@ -489,7 +489,12 @@ export function AIPanel({
             </>
           ) : aiStopped ? (
             <>
-              <Button onClick={handleStart} className="w-full" size="sm">
+              {storedSolution.length > 0 && (
+                <Button onClick={handleReplay} className="w-full" size="sm">
+                  Replay AI Solution
+                </Button>
+              )}
+              <Button onClick={handleStart} variant="secondary" className="w-full" size="sm">
                 Retry
               </Button>
               <Button onClick={handleResetAI} variant="outline" className="w-full" size="sm">
