@@ -20,12 +20,11 @@ export interface SokobanLevel {
   fileSource: string
   puzzleNumber: number
   optimalMoves?: number // Minimum moves to solve (from solver)
+  generationIterations?: number // Number of attempts to generate this puzzle
+  usedFallback?: boolean // True if generator fell back to simple puzzle
 }
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'classic'
-
-// Wall generation algorithm types
-export type WallGeneratorType = 'random' | 'maze' | 'rooms' | 'obstacles'
 
 // Movement
 export type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'

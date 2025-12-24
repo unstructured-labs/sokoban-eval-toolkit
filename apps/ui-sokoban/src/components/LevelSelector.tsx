@@ -1,5 +1,4 @@
 import { Button } from '@sokoban-eval-toolkit/ui-library/components/button'
-import { Checkbox } from '@sokoban-eval-toolkit/ui-library/components/checkbox'
 import { Input } from '@sokoban-eval-toolkit/ui-library/components/input'
 import { Label } from '@sokoban-eval-toolkit/ui-library/components/label'
 import {
@@ -10,54 +9,52 @@ import {
   SelectValue,
 } from '@sokoban-eval-toolkit/ui-library/components/select'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
+import { Slider } from '@sokoban-eval-toolkit/ui-library/components/slider'
+import { Switch } from '@sokoban-eval-toolkit/ui-library/components/switch'
 import { DIFFICULTY_LABELS } from '@src/constants'
-import type { Difficulty, SokobanLevel, WallGeneratorType } from '@src/types'
+import type { Difficulty, SokobanLevel } from '@src/types'
 import { generateLevel } from '@src/utils/levelGenerator'
 import { getMediumLevel, getMediumLevelCount, getRandomMediumLevel } from '@src/utils/levelLoader'
-import { ChevronLeft, ChevronRight, Dices, Shuffle } from 'lucide-react'
-import { useCallback, useState } from 'react'
-
-// Wall pattern options with labels
-const WALL_PATTERNS: { type: WallGeneratorType; label: string }[] = [
-  { type: 'random', label: 'Random' },
-  { type: 'maze', label: 'Maze corridors' },
-  { type: 'rooms', label: 'Multi-room' },
-  { type: 'obstacles', label: 'Strategic obstacles' },
-]
+import { AlertTriangle, ChevronLeft, ChevronRight, Dices, Shuffle } from 'lucide-react'
+import { useCallback, useRef, useState } from 'react'
 
 // Difficulties that use procedural generation
 const GENERATED_DIFFICULTIES: Exclude<Difficulty, 'classic'>[] = ['easy', 'medium', 'hard']
 
 // Info text for each difficulty
 const DIFFICULTY_INFO: Record<Difficulty, string> = {
-  easy: '8×8 puzzles with 2 boxes. Quick to solve, great for learning.',
-  medium: '9×9 puzzles with 3 boxes. More challenging with longer solutions.',
-  hard: '10×10 puzzles with 4 boxes. Complex puzzles requiring careful planning.',
+  easy: '2 boxes. Quick to solve, great for learning.',
+  medium: '3 boxes. More challenging with longer solutions.',
+  hard: '4 boxes. Complex puzzles requiring careful planning.',
   classic: 'Curated puzzles from boxoban-levels (10×10, 4 boxes).',
 }
 
 interface LevelSelectorProps {
   onLevelLoad: (level: SokobanLevel) => void
   disabled?: boolean
+  currentLevel?: SokobanLevel | null
+  isEditing?: boolean
+  onEditingChange?: (editing: boolean) => void
 }
 
-export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorProps) {
+export function LevelSelector({
+  onLevelLoad,
+  disabled = false,
+  currentLevel,
+  isEditing = false,
+  onEditingChange,
+}: LevelSelectorProps) {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy')
   const [puzzleNumber, setPuzzleNumber] = useState<number>(1)
   const [error, setError] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [wallPatterns, setWallPatterns] = useState<WallGeneratorType[]>(['random'])
+  const [minSolutionSteps, setMinSolutionSteps] = useState(15)
+  const [maxAttempts, setMaxAttempts] = useState(1000)
+  const [gridSize, setGridSize] = useState(12)
 
-  const toggleWallPattern = (pattern: WallGeneratorType, enabled: boolean) => {
-    setWallPatterns((current) => {
-      if (enabled) {
-        return current.includes(pattern) ? current : [...current, pattern]
-      }
-      // Don't allow removing the last pattern
-      const filtered = current.filter((p) => p !== pattern)
-      return filtered.length > 0 ? filtered : current
-    })
-  }
+  // Refs to avoid stale closures in setTimeout
+  const settingsRef = useRef({ difficulty, minSolutionSteps, maxAttempts, gridSize })
+  settingsRef.current = { difficulty, minSolutionSteps, maxAttempts, gridSize }
 
   const classicLevelCount = getMediumLevelCount()
   const isGenerated = GENERATED_DIFFICULTIES.includes(difficulty as Exclude<Difficulty, 'classic'>)
@@ -86,9 +83,18 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
 
     // Use setTimeout to allow UI to update before potentially slow generation
     setTimeout(() => {
+      // Read from ref to get latest values (avoids stale closure)
+      const {
+        difficulty: diff,
+        minSolutionSteps: minSteps,
+        maxAttempts: attempts,
+        gridSize: size,
+      } = settingsRef.current
       try {
-        const level = generateLevel(difficulty as Exclude<Difficulty, 'classic'>, {
-          wallGenerators: wallPatterns,
+        const level = generateLevel(diff as Exclude<Difficulty, 'classic'>, {
+          minSolutionLength: minSteps,
+          maxAttempts: attempts,
+          gridSize: size,
         })
         onLevelLoad(level)
       } catch (err) {
@@ -98,7 +104,7 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
         setIsGenerating(false)
       }
     }, 10)
-  }, [difficulty, isGenerated, onLevelLoad, wallPatterns])
+  }, [isGenerated, onLevelLoad])
 
   return (
     <div className="space-y-3">
@@ -146,28 +152,108 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
       {/* Generated difficulty modes */}
       {isGenerated ? (
         <>
-          {/* Wall pattern checkboxes */}
+          {/* Grid size slider */}
           <div className="space-y-2">
-            <span className="text-xs text-muted-foreground">Wall Patterns</span>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
-              {WALL_PATTERNS.map(({ type, label }) => (
-                <div key={type} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`wall-${type}`}
-                    checked={wallPatterns.includes(type)}
-                    onCheckedChange={(checked) => toggleWallPattern(type, checked === true)}
-                    disabled={disabled || isGenerating}
-                  />
-                  <Label
-                    htmlFor={`wall-${type}`}
-                    className="text-xs text-muted-foreground cursor-pointer"
-                  >
-                    {label}
-                  </Label>
-                </div>
-              ))}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Grid Size</span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {gridSize}×{gridSize}
+              </span>
+            </div>
+            <Slider
+              value={[gridSize]}
+              onValueChange={([v]) => setGridSize(v)}
+              min={8}
+              max={30}
+              step={1}
+              disabled={disabled || isGenerating}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground/60">
+              <span>Small</span>
+              <span>Large</span>
             </div>
           </div>
+
+          {/* Min solution steps slider */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Min Solution Steps</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{minSolutionSteps}</span>
+            </div>
+            <Slider
+              value={[minSolutionSteps]}
+              onValueChange={([v]) => setMinSolutionSteps(v)}
+              min={3}
+              max={30}
+              step={1}
+              disabled={disabled || isGenerating}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground/60">
+              <span>Easy</span>
+              <span>Complex</span>
+            </div>
+          </div>
+
+          {/* Max attempts slider */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Max Attempts</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{maxAttempts}</span>
+            </div>
+            <Slider
+              value={[maxAttempts]}
+              onValueChange={([v]) => setMaxAttempts(v)}
+              min={100}
+              max={10000}
+              step={100}
+              disabled={disabled || isGenerating}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground/60">
+              <span>Faster</span>
+              <span>More Tries</span>
+            </div>
+          </div>
+
+          {/* Editing toggle */}
+          <div className="flex items-center justify-between">
+            <Label htmlFor="edit-mode" className="text-xs text-muted-foreground cursor-pointer">
+              Enable Editing
+            </Label>
+            <Switch
+              id="edit-mode"
+              checked={isEditing}
+              onCheckedChange={onEditingChange}
+              disabled={disabled || !currentLevel}
+            />
+          </div>
+
+          {/* Generation stats from last puzzle */}
+          {currentLevel?.generationIterations && (
+            <div
+              className={`rounded-md px-3 py-2 text-xs ${
+                currentLevel.usedFallback
+                  ? 'bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400'
+                  : 'bg-muted/30 text-muted-foreground'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                {currentLevel.usedFallback && <AlertTriangle className="w-3.5 h-3.5" />}
+                <span>
+                  Generated in {currentLevel.generationIterations} iteration
+                  {currentLevel.generationIterations !== 1 ? 's' : ''}
+                  {currentLevel.optimalMoves && ` · ${currentLevel.optimalMoves} moves`}
+                </span>
+              </div>
+              {currentLevel.usedFallback && (
+                <div className="text-[10px] mt-1 opacity-80">
+                  Fallback puzzle used - try lowering min steps
+                </div>
+              )}
+            </div>
+          )}
 
           <Button
             onClick={handleGenerate}

@@ -1,369 +1,328 @@
-import type { CellTerrain, Difficulty, Position, SokobanLevel, WallGeneratorType } from '../types'
+import type { CellTerrain, Difficulty, Position, SokobanLevel } from '../types'
 import { solvePuzzle } from './sokobanSolver'
-import { generateWalls } from './wallGenerators'
+import { generateInterestingLevel } from './wallGenerators'
 
-interface GeneratorOptions {
-  width?: number
-  height?: number
+export interface GeneratorOptions {
+  /** Number of boxes to place. If not set, uses difficulty preset. */
   numBoxes?: number
+  /** Minimum solution length. If not set, uses difficulty preset. */
   minSolutionLength?: number
-  maxSolutionLength?: number
+  /** Maximum attempts to find a valid puzzle. Default: 1000 */
   maxAttempts?: number
-  maxSolverNodes?: number
-  wallGenerators?: WallGeneratorType[]
+  /** Initial wall fill percentage for cellular automata (0.4-0.5 recommended). Default: 0.46 */
+  fillPercent?: number
+  /** Number of CA smoothing iterations (3-5 recommended). Default: 4 */
+  iterations?: number
+  /** Grid size (width and height). Overrides difficulty preset. Default: 12 */
+  gridSize?: number
 }
 
-const DEFAULT_OPTIONS: Required<GeneratorOptions> = {
-  width: 8,
-  height: 8,
-  numBoxes: 2,
-  minSolutionLength: 5,
-  maxSolutionLength: 15,
-  maxAttempts: 200,
-  maxSolverNodes: 50000,
-  wallGenerators: ['random'],
+interface DifficultyPreset {
+  width: number
+  height: number
+  numBoxes: number
+  minSolutionLength: number
+  maxSolutionLength: number
+  maxSolverNodes: number
 }
 
 // Difficulty presets
-const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic'>, Required<GeneratorOptions>> = {
+const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic'>, DifficultyPreset> = {
   easy: {
     width: 8,
     height: 8,
     numBoxes: 2,
     minSolutionLength: 5,
-    maxSolutionLength: 15,
-    maxAttempts: 200,
+    maxSolutionLength: 20,
     maxSolverNodes: 50000,
-    wallGenerators: ['random'],
   },
   medium: {
     width: 9,
     height: 9,
     numBoxes: 3,
-    minSolutionLength: 10,
-    maxSolutionLength: 25,
-    maxAttempts: 400,
+    minSolutionLength: 8,
+    maxSolutionLength: 30,
     maxSolverNodes: 100000,
-    wallGenerators: ['random'],
   },
   hard: {
     width: 10,
     height: 10,
     numBoxes: 4,
-    minSolutionLength: 15,
-    maxSolutionLength: 40,
-    maxAttempts: 600,
+    minSolutionLength: 12,
+    maxSolutionLength: 50,
     maxSolverNodes: 200000,
-    wallGenerators: ['random'],
   },
 }
 
 /**
- * Generate a solvable Sokoban puzzle for the specified difficulty.
+ * Generate a solvable Sokoban puzzle using cellular automata terrain generation.
  *
  * Strategy:
- * 1. Generate walls using the selected algorithm
- * 2. Place goal(s) in valid interior positions
- * 3. For each goal, trace a path backward to place box and ensure push path
- * 4. Place player where they can execute the solution
- * 5. Verify with BFS solver and ensure solution length is within range
+ * 1. Generate organic cave-like terrain using cellular automata
+ * 2. Place goals on valid floor positions
+ * 3. Place boxes that can reach goals (traced backward)
+ * 4. Place player adjacent to a box
+ * 5. Verify solvability with BFS solver
+ * 6. Repeat until valid puzzle found or max attempts reached
  */
 export function generateLevel(
   difficulty: Exclude<Difficulty, 'classic'>,
-  options?: { wallGenerators?: WallGeneratorType[] },
+  options?: GeneratorOptions,
 ): SokobanLevel {
-  const opts = DIFFICULTY_PRESETS[difficulty]
-  const {
-    width,
-    height,
-    numBoxes,
-    minSolutionLength,
-    maxSolutionLength,
-    maxAttempts,
-    maxSolverNodes,
-  } = opts
+  const preset = DIFFICULTY_PRESETS[difficulty]
+  const { maxSolutionLength, maxSolverNodes } = preset
 
-  // Use provided wall generators or default from preset
-  const wallGenerators = options?.wallGenerators ?? opts.wallGenerators
+  // Grid size can be overridden, defaults to 12
+  const gridSize = options?.gridSize ?? 12
+  const width = gridSize
+  const height = gridSize
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    // Pick a random wall generator from the enabled list
-    const generatorType = wallGenerators[Math.floor(Math.random() * wallGenerators.length)]
+  const numBoxes = options?.numBoxes ?? preset.numBoxes
+  const minSolutionLength = options?.minSolutionLength ?? preset.minSolutionLength
+  const maxAttempts = options?.maxAttempts ?? 1000
+  const fillPercent = options?.fillPercent ?? 0.46
+  const iterations = options?.iterations ?? 4
 
-    const result = tryGenerateLevel(width, height, numBoxes, generatorType)
-    if (!result) continue
+  console.log(
+    `[Generator] Starting: ${difficulty}, ${numBoxes} boxes, minSolution=${minSolutionLength}, maxAttempts=${maxAttempts}`,
+  )
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Generate organic terrain
+    const { terrain } = generateInterestingLevel({
+      width,
+      height,
+      fillPercent,
+      iterations,
+    })
+
+    // Try to place goals, boxes, and player
+    const placement = tryPlaceEntities(terrain, numBoxes, width, height)
+    if (!placement) {
+      if (attempt % 100 === 0) {
+        console.log(`[Generator] Attempt ${attempt}: Failed to place entities`)
+      }
+      continue
+    }
 
     const candidateLevel: SokobanLevel = {
-      ...result,
       id: `${difficulty}-generated-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      width,
+      height,
+      terrain: placement.terrain,
+      playerStart: placement.playerPos,
+      boxStarts: placement.boxes,
+      goals: placement.goals,
       difficulty,
-      fileSource: generatorType === 'random' ? 'generated' : `generated-${generatorType}`,
-      puzzleNumber: attempt + 1,
+      fileSource: 'generated',
+      puzzleNumber: attempt,
     }
 
     // Verify with solver
     const solverResult = solvePuzzle(candidateLevel, maxSolverNodes)
 
-    if (!solverResult.solvable) continue
-    if (solverResult.moveCount < minSolutionLength) continue
-    if (solverResult.moveCount > maxSolutionLength) continue
+    if (!solverResult.solvable) {
+      if (attempt % 100 === 0) {
+        console.log(`[Generator] Attempt ${attempt}: Unsolvable`)
+      }
+      continue
+    }
 
-    // Valid puzzle - add optimal moves and return
+    if (solverResult.moveCount < minSolutionLength) {
+      if (attempt % 50 === 0) {
+        console.log(
+          `[Generator] Attempt ${attempt}: Too easy (${solverResult.moveCount} < ${minSolutionLength} moves)`,
+        )
+      }
+      continue
+    }
+
+    if (solverResult.moveCount > maxSolutionLength) {
+      if (attempt % 50 === 0) {
+        console.log(
+          `[Generator] Attempt ${attempt}: Too hard (${solverResult.moveCount} > ${maxSolutionLength} moves)`,
+        )
+      }
+      continue
+    }
+
+    // Valid puzzle found!
+    console.log(
+      `[Generator] SUCCESS! Found puzzle in ${attempt} attempts (${solverResult.moveCount} moves)`,
+    )
+
     return {
       ...candidateLevel,
       optimalMoves: solverResult.moveCount,
+      generationIterations: attempt,
     }
   }
 
-  // Fallback: return a simple puzzle for this difficulty
-  return createFallbackPuzzle(width, height, numBoxes, difficulty)
+  // Fallback: return a simple puzzle
+  console.log(
+    `[Generator] FALLBACK: No valid puzzle found after ${maxAttempts} attempts, using simple fallback`,
+  )
+  return createFallbackPuzzle(width, height, numBoxes, difficulty, maxAttempts)
 }
 
 /**
- * Generate an easy level (convenience wrapper).
+ * Try to place goals, boxes, and player on the terrain.
  */
-export function generateEasyLevel(options: GeneratorOptions = {}): SokobanLevel {
-  if (Object.keys(options).length === 0) {
-    return generateLevel('easy')
-  }
-
-  // Custom options provided - use them directly
-  const opts = { ...DEFAULT_OPTIONS, ...options }
-  const {
-    width,
-    height,
-    numBoxes,
-    minSolutionLength,
-    maxSolutionLength,
-    maxAttempts,
-    maxSolverNodes,
-  } = opts
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const result = tryGenerateLevel(width, height, numBoxes)
-    if (!result) continue
-
-    const candidateLevel: SokobanLevel = {
-      ...result,
-      id: `easy-generated-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      difficulty: 'easy',
-      fileSource: 'generated',
-      puzzleNumber: attempt + 1,
-    }
-
-    // Verify with solver
-    const solverResult = solvePuzzle(candidateLevel, maxSolverNodes)
-
-    if (!solverResult.solvable) continue
-    if (solverResult.moveCount < minSolutionLength) continue
-    if (solverResult.moveCount > maxSolutionLength) continue
-
-    // Valid puzzle - add optimal moves and return
-    return {
-      ...candidateLevel,
-      optimalMoves: solverResult.moveCount,
-    }
-  }
-
-  // Fallback: return a simple 2-box puzzle
-  return createFallbackPuzzle(width, height, numBoxes, 'easy')
-}
-
-function tryGenerateLevel(
-  width: number,
-  height: number,
+function tryPlaceEntities(
+  terrain: CellTerrain[][],
   numBoxes: number,
-  wallGeneratorType: WallGeneratorType = 'random',
-): Omit<SokobanLevel, 'id' | 'difficulty' | 'fileSource' | 'puzzleNumber' | 'optimalMoves'> | null {
-  // Generate terrain using the selected wall generator
-  const { terrain } = generateWalls(wallGeneratorType, { width, height })
-
-  // Pick goal positions (interior, not adjacent to border)
-  const goals: Position[] = []
-  const boxes: Position[] = []
-
-  for (let i = 0; i < numBoxes; i++) {
-    const goal = findValidGoalPosition(terrain, goals, width, height)
-    if (!goal) return null
-    goals.push(goal)
-    terrain[goal.y][goal.x] = 'goal'
-
-    // Find a valid box starting position (can be pushed to goal)
-    const boxPath = generateBoxPath(terrain, goal, width, height, boxes)
-    if (!boxPath) return null
-
-    boxes.push(boxPath.boxStart)
-  }
-
-  // Find player position (can push first box)
-  const playerPos = findPlayerPosition(terrain, boxes[0], width, height, boxes)
-  if (!playerPos) return null
-
-  // Restore goals in terrain (they might have been marked during path finding)
-  for (const goal of goals) {
-    terrain[goal.y][goal.x] = 'goal'
-  }
-
-  return {
-    width,
-    height,
-    terrain,
-    playerStart: playerPos,
-    boxStarts: boxes,
-    goals,
-  }
-}
-
-function findValidGoalPosition(
-  terrain: CellTerrain[][],
-  existingGoals: Position[],
   width: number,
   height: number,
-): Position | null {
-  const attempts = 50
-  for (let i = 0; i < attempts; i++) {
-    const x = randomInt(2, width - 3)
-    const y = randomInt(2, height - 3)
+): {
+  terrain: CellTerrain[][]
+  goals: Position[]
+  boxes: Position[]
+  playerPos: Position
+} | null {
+  // Make a copy of terrain to modify
+  const terrainCopy: CellTerrain[][] = terrain.map((row) => [...row])
 
-    if (terrain[y][x] !== 'floor') continue
-    if (existingGoals.some((g) => g.x === x && g.y === y)) continue
-
-    // Ensure at least 2 adjacent floor cells (for pushing)
-    const adjacent = getAdjacentFloors(terrain, { x, y }, width, height)
-    if (adjacent.length >= 2) {
-      return { x, y }
-    }
-  }
-  return null
-}
-
-function generateBoxPath(
-  terrain: CellTerrain[][],
-  goal: Position,
-  width: number,
-  height: number,
-  existingBoxes: Position[],
-): { boxStart: Position } | null {
-  // Trace backward from goal: find a position for the box
-  // Box should be 2-4 pushes away from goal
-  const minDistance = 2
-  const maxDistance = 4
-
-  let current = { ...goal }
-  const directions = [
-    { dx: 0, dy: -1 },
-    { dx: 0, dy: 1 },
-    { dx: -1, dy: 0 },
-    { dx: 1, dy: 0 },
-  ]
-
-  const targetPushes = randomInt(minDistance, maxDistance)
-
-  for (let push = 0; push < targetPushes; push++) {
-    // Shuffle directions for variety
-    const shuffled = [...directions].sort(() => Math.random() - 0.5)
-    let moved = false
-
-    for (const dir of shuffled) {
-      const newBox = { x: current.x + dir.dx, y: current.y + dir.dy }
-      const playerWas = { x: newBox.x + dir.dx, y: newBox.y + dir.dy }
-
-      // Check if this reverse-push is valid
-      if (!isValidPosition(newBox, terrain, width, height)) continue
-      if (!isValidPosition(playerWas, terrain, width, height)) continue
-      if (existingBoxes.some((b) => b.x === newBox.x && b.y === newBox.y)) continue
-
-      current = newBox
-      moved = true
-      break
-    }
-
-    if (!moved) {
-      // Can't extend path further
-      if (push >= minDistance - 1) break
-      return null
-    }
-  }
-
-  // Ensure box start isn't on goal
-  if (current.x === goal.x && current.y === goal.y) return null
-
-  return { boxStart: current }
-}
-
-function findPlayerPosition(
-  terrain: CellTerrain[][],
-  firstBox: Position,
-  width: number,
-  height: number,
-  allBoxes: Position[],
-): Position | null {
-  // Player needs to be positioned to push the first box
-  const directions = [
-    { dx: 0, dy: -1 },
-    { dx: 0, dy: 1 },
-    { dx: -1, dy: 0 },
-    { dx: 1, dy: 0 },
-  ]
-
-  const shuffled = [...directions].sort(() => Math.random() - 0.5)
-
-  for (const dir of shuffled) {
-    // Player position is opposite to push direction
-    const playerPos = { x: firstBox.x - dir.dx, y: firstBox.y - dir.dy }
-
-    if (!isValidPosition(playerPos, terrain, width, height)) continue
-    if (allBoxes.some((b) => b.x === playerPos.x && b.y === playerPos.y)) continue
-
-    return playerPos
-  }
-
-  // Fallback: any valid floor position not occupied
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      if (terrain[y][x] === 'floor' || terrain[y][x] === 'goal') {
-        if (!allBoxes.some((b) => b.x === x && b.y === y)) {
-          return { x, y }
+  // Find all valid floor positions (not on border)
+  const floorPositions: Position[] = []
+  for (let y = 2; y < height - 2; y++) {
+    for (let x = 2; x < width - 2; x++) {
+      if (terrainCopy[y][x] === 'floor') {
+        // Check if has enough adjacent floors for pushing
+        const adjacentFloors = countAdjacentFloors(terrainCopy, x, y)
+        if (adjacentFloors >= 2) {
+          floorPositions.push({ x, y })
         }
       }
     }
   }
 
-  return null
-}
-
-function isValidPosition(
-  pos: Position,
-  terrain: CellTerrain[][],
-  width: number,
-  height: number,
-): boolean {
-  if (pos.x < 1 || pos.x >= width - 1 || pos.y < 1 || pos.y >= height - 1) {
-    return false
+  // Need enough floor positions for goals + boxes + player
+  if (floorPositions.length < numBoxes * 2 + 1) {
+    return null
   }
-  const cell = terrain[pos.y]?.[pos.x]
-  return cell === 'floor' || cell === 'goal'
+
+  // Shuffle positions for randomness
+  shuffleArray(floorPositions)
+
+  // Place goals
+  const goals: Position[] = []
+  for (let i = 0; i < numBoxes && i < floorPositions.length; i++) {
+    const pos = floorPositions[i]
+    goals.push(pos)
+    terrainCopy[pos.y][pos.x] = 'goal'
+  }
+
+  if (goals.length < numBoxes) return null
+
+  // Place boxes (not on goals, not adjacent to each other)
+  const boxes: Position[] = []
+  const usedPositions = new Set(goals.map((g) => `${g.x},${g.y}`))
+
+  for (let i = numBoxes; i < floorPositions.length && boxes.length < numBoxes; i++) {
+    const pos = floorPositions[i]
+    const key = `${pos.x},${pos.y}`
+
+    if (usedPositions.has(key)) continue
+
+    // Check not adjacent to another box (prevents immediate deadlocks)
+    const adjacentToBox = boxes.some((b) => Math.abs(b.x - pos.x) + Math.abs(b.y - pos.y) === 1)
+    if (adjacentToBox) continue
+
+    // Check box can be pushed (has floor on opposite sides)
+    if (!canBePushed(terrainCopy, pos)) continue
+
+    boxes.push(pos)
+    usedPositions.add(key)
+  }
+
+  if (boxes.length < numBoxes) return null
+
+  // Place player (adjacent to a box, on floor)
+  let playerPos: Position | null = null
+  const directions = [
+    { dx: 0, dy: -1 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+    { dx: 1, dy: 0 },
+  ]
+
+  // Shuffle boxes to randomize which one player starts near
+  const shuffledBoxes = [...boxes].sort(() => Math.random() - 0.5)
+
+  for (const box of shuffledBoxes) {
+    const shuffledDirs = [...directions].sort(() => Math.random() - 0.5)
+    for (const dir of shuffledDirs) {
+      const px = box.x + dir.dx
+      const py = box.y + dir.dy
+      const cell = terrainCopy[py]?.[px]
+
+      if ((cell === 'floor' || cell === 'goal') && !usedPositions.has(`${px},${py}`)) {
+        playerPos = { x: px, y: py }
+        break
+      }
+    }
+    if (playerPos) break
+  }
+
+  if (!playerPos) {
+    // Fallback: any floor position not used
+    for (const pos of floorPositions) {
+      if (!usedPositions.has(`${pos.x},${pos.y}`)) {
+        playerPos = pos
+        break
+      }
+    }
+  }
+
+  if (!playerPos) return null
+
+  return {
+    terrain: terrainCopy,
+    goals,
+    boxes,
+    playerPos,
+  }
 }
 
-function getAdjacentFloors(
-  terrain: CellTerrain[][],
-  pos: Position,
-  width: number,
-  height: number,
-): Position[] {
+/**
+ * Check if a box at position can theoretically be pushed (has opposing floors).
+ */
+function canBePushed(terrain: CellTerrain[][], pos: Position): boolean {
+  const cell = (x: number, y: number) => terrain[y]?.[x]
+  const isFloorOrGoal = (x: number, y: number) => {
+    const c = cell(x, y)
+    return c === 'floor' || c === 'goal'
+  }
+
+  // Check horizontal push possibility
+  const canPushHorizontal = isFloorOrGoal(pos.x - 1, pos.y) && isFloorOrGoal(pos.x + 1, pos.y)
+
+  // Check vertical push possibility
+  const canPushVertical = isFloorOrGoal(pos.x, pos.y - 1) && isFloorOrGoal(pos.x, pos.y + 1)
+
+  return canPushHorizontal || canPushVertical
+}
+
+function countAdjacentFloors(terrain: CellTerrain[][], x: number, y: number): number {
+  let count = 0
   const dirs = [
     { dx: 0, dy: -1 },
     { dx: 0, dy: 1 },
     { dx: -1, dy: 0 },
     { dx: 1, dy: 0 },
   ]
-  return dirs
-    .map((d) => ({ x: pos.x + d.dx, y: pos.y + d.dy }))
-    .filter((p) => isValidPosition(p, terrain, width, height))
+  for (const { dx, dy } of dirs) {
+    const cell = terrain[y + dy]?.[x + dx]
+    if (cell === 'floor' || cell === 'goal') count++
+  }
+  return count
 }
 
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min
+function shuffleArray<T>(array: T[]): void {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[array[i], array[j]] = [array[j], array[i]]
+  }
 }
 
 function createFallbackPuzzle(
@@ -371,8 +330,9 @@ function createFallbackPuzzle(
   height: number,
   numBoxes: number,
   difficulty: Exclude<Difficulty, 'classic'>,
+  totalAttempts: number,
 ): SokobanLevel {
-  // Create a simple puzzle with the requested number of boxes
+  // Create a simple open puzzle
   const terrain: CellTerrain[][] = []
   for (let y = 0; y < height; y++) {
     const row: CellTerrain[] = []
@@ -389,20 +349,17 @@ function createFallbackPuzzle(
   const centerX = Math.floor(width / 2)
   const centerY = Math.floor(height / 2)
 
-  // Place goals and boxes based on numBoxes
   const goals: Position[] = []
   const boxStarts: Position[] = []
 
   for (let i = 0; i < numBoxes; i++) {
     const yOffset = i - Math.floor(numBoxes / 2)
     const goalY = centerY + yOffset
-    const boxY = centerY + yOffset
 
-    // Ensure we stay within bounds
     if (goalY > 0 && goalY < height - 1) {
       terrain[goalY][centerX + 2] = 'goal'
       goals.push({ x: centerX + 2, y: goalY })
-      boxStarts.push({ x: centerX, y: boxY })
+      boxStarts.push({ x: centerX, y: goalY })
     }
   }
 
@@ -417,9 +374,10 @@ function createFallbackPuzzle(
     difficulty,
     fileSource: 'generated',
     puzzleNumber: 1,
+    generationIterations: totalAttempts,
+    usedFallback: true,
   }
 
-  // Calculate optimal moves for fallback
   const result = solvePuzzle(level)
   if (result.solvable) {
     level.optimalMoves = result.moveCount

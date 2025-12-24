@@ -145,12 +145,12 @@ export function parseAIResponse(response: string): {
         const moves = parsed.moves
           .map((m: string) => parseMove(m))
           .filter((m: MoveDirection | null): m is MoveDirection => m !== null)
-        if (moves.length > 0) {
-          return {
-            moves,
-            rawText: response,
-            reasoning: parsed.reasoning ?? undefined,
-          }
+        // Return even if empty - this is a valid structured response with no moves
+        return {
+          moves,
+          rawText: response,
+          reasoning: parsed.reasoning ?? undefined,
+          error: moves.length === 0 ? 'AI returned empty moves array' : undefined,
         }
       }
 
@@ -171,12 +171,12 @@ export function parseAIResponse(response: string): {
         const moves = parsed.actions
           .map((a: { action: string }) => parseMove(a.action))
           .filter((m: MoveDirection | null): m is MoveDirection => m !== null)
-        if (moves.length > 0) {
-          return {
-            moves,
-            rawText: response,
-            reasoning: parsed.comments ?? parsed.reasoning ?? undefined,
-          }
+        // Return even if empty - this is a valid structured response with no moves
+        return {
+          moves,
+          rawText: response,
+          reasoning: parsed.comments ?? parsed.reasoning ?? undefined,
+          error: moves.length === 0 ? 'AI returned empty actions array' : undefined,
         }
       }
     }

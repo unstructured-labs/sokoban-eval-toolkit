@@ -26,6 +26,13 @@ export function SokobanGame() {
   const [aiInferenceTimeMs, setAiInferenceTimeMs] = useState<number | null>(null)
   const initialLoadDone = useRef(false)
   const [isPlayingSolution, setIsPlayingSolution] = useState(false)
+  const [isEditing, setIsEditing] = useState(true)
+  const [selectedEntity, setSelectedEntity] = useState<{
+    type: 'player' | 'box' | 'goal'
+    index?: number
+    x: number
+    y: number
+  } | null>(null)
   const solutionMovesRef = useRef<MoveDirection[]>([])
   const solutionIndexRef = useRef(0)
   const solutionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -159,6 +166,154 @@ export function SokobanGame() {
     }
   }, [currentLevel, handleLevelLoad])
 
+  // Handle cell click for editing mode
+  const handleCellClick = useCallback(
+    (x: number, y: number) => {
+      if (!gameState || !isEditing) return
+
+      const currentTerrain = gameState.level.terrain[y]?.[x]
+      if (currentTerrain === undefined) return
+
+      // Check what's at this cell
+      const isPlayerHere = gameState.playerPos.x === x && gameState.playerPos.y === y
+      const boxIndex = gameState.boxes.findIndex((b) => b.x === x && b.y === y)
+      const isBoxHere = boxIndex !== -1
+      const isGoalHere = currentTerrain === 'goal'
+      const isWall = currentTerrain === 'wall'
+
+      // If clicking on player, box, or goal - handle selection
+      if (isPlayerHere || isBoxHere || (isGoalHere && !isPlayerHere && !isBoxHere)) {
+        // Determine what we clicked on (priority: player > box > goal)
+        let clickedType: 'player' | 'box' | 'goal'
+        let clickedIndex: number | undefined
+
+        if (isPlayerHere) {
+          clickedType = 'player'
+        } else if (isBoxHere) {
+          clickedType = 'box'
+          clickedIndex = boxIndex
+        } else {
+          clickedType = 'goal'
+        }
+
+        // If same entity is already selected, deselect it
+        if (
+          selectedEntity &&
+          selectedEntity.type === clickedType &&
+          selectedEntity.x === x &&
+          selectedEntity.y === y
+        ) {
+          setSelectedEntity(null)
+          return
+        }
+
+        // Select this entity
+        setSelectedEntity({ type: clickedType, index: clickedIndex, x, y })
+        return
+      }
+
+      // If something is selected and clicking on a valid destination
+      if (selectedEntity) {
+        // Don't allow placing on border
+        if (
+          x === 0 ||
+          x === gameState.level.width - 1 ||
+          y === 0 ||
+          y === gameState.level.height - 1
+        ) {
+          return
+        }
+
+        // Can't place on walls
+        if (isWall) {
+          return
+        }
+
+        // Can't place on occupied cells (player or box already there)
+        if (isPlayerHere || isBoxHere) {
+          return
+        }
+
+        // Move the selected entity
+        if (selectedEntity.type === 'player') {
+          setGameState({
+            ...gameState,
+            playerPos: { x, y },
+          })
+        } else if (selectedEntity.type === 'box' && selectedEntity.index !== undefined) {
+          const newBoxes = [...gameState.boxes]
+          newBoxes[selectedEntity.index] = { x, y }
+          setGameState({
+            ...gameState,
+            boxes: newBoxes,
+          })
+        } else if (selectedEntity.type === 'goal') {
+          // Move goal: remove from old position, add to new position
+          const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
+            row.map((cell, cellX) => {
+              if (cellX === selectedEntity.x && rowY === selectedEntity.y) {
+                return 'floor' // Remove goal from old position
+              }
+              if (cellX === x && rowY === y) {
+                return 'goal' // Add goal to new position
+              }
+              return cell
+            }),
+          )
+
+          const newLevel = {
+            ...gameState.level,
+            terrain: newTerrainGrid,
+          }
+
+          setGameState({
+            ...gameState,
+            level: newLevel,
+          })
+          setCurrentLevel(newLevel)
+        }
+
+        // Clear selection after moving
+        setSelectedEntity(null)
+        return
+      }
+
+      // No selection - toggle wall/floor (original behavior)
+      // Don't allow editing border walls
+      if (
+        x === 0 ||
+        x === gameState.level.width - 1 ||
+        y === 0 ||
+        y === gameState.level.height - 1
+      ) {
+        return
+      }
+
+      // Toggle between wall and floor
+      const newTerrain = currentTerrain === 'wall' ? 'floor' : 'wall'
+
+      // Create new terrain array with the change
+      const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
+        rowY === y ? row.map((cell, cellX) => (cellX === x ? newTerrain : cell)) : row,
+      )
+
+      // Update the level and game state
+      const newLevel = {
+        ...gameState.level,
+        terrain: newTerrainGrid,
+      }
+
+      setGameState({
+        ...gameState,
+        level: newLevel,
+      })
+
+      // Also update currentLevel so resets use the edited version
+      setCurrentLevel(newLevel)
+    },
+    [gameState, isEditing, selectedEntity],
+  )
+
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -218,7 +373,13 @@ export function SokobanGame() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto space-y-4 min-h-0">
-            <LevelSelector onLevelLoad={handleLevelLoad} disabled={false} />
+            <LevelSelector
+              onLevelLoad={handleLevelLoad}
+              disabled={false}
+              currentLevel={currentLevel}
+              isEditing={isEditing}
+              onEditingChange={setIsEditing}
+            />
             <ControlPanel
               state={gameState}
               onUndo={handleUndo}
@@ -253,14 +414,16 @@ export function SokobanGame() {
           {gameState && !gameState.isWon && (
             <div className="text-xs text-muted-foreground mb-3">
               Progress: {boxesOnGoals}/{totalBoxes} boxes on goals
-              {currentLevel?.optimalMoves && (
-                <span className="ml-2">· Optimal: {currentLevel.optimalMoves} moves</span>
-              )}
             </div>
           )}
 
           {/* Grid */}
-          <SokobanGrid state={gameState} />
+          <SokobanGrid
+            state={gameState}
+            isEditing={isEditing}
+            onCellClick={handleCellClick}
+            selectedEntity={selectedEntity}
+          />
 
           {/* Legend */}
           <div className="mt-3 flex gap-4 items-center text-[11px] text-muted-foreground">
@@ -301,6 +464,13 @@ export function SokobanGame() {
               {currentLevel.width}×{currentLevel.height}
               <span className="mx-2">·</span>
               {currentLevel.boxStarts.length} boxes
+              {currentLevel.generationIterations && (
+                <>
+                  <span className="mx-2">·</span>
+                  Generated in {currentLevel.generationIterations} iteration
+                  {currentLevel.generationIterations !== 1 ? 's' : ''}
+                </>
+              )}
             </div>
           )}
         </div>

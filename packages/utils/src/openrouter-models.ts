@@ -141,12 +141,6 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
     description: 'Kimi K2 Thinking model',
   },
   {
-    id: 'moonshotai/kimi-k2:free',
-    name: 'Kimi K2 0711 (Free)',
-    description:
-      '1T total parameters MoE model with 32B active, optimized for agentic capabilities and tool use',
-  },
-  {
     id: 'qwen/qwen3-next-80b-a3b-thinking',
     name: 'Qwen3 Next 80B A3B Thinking',
     description: 'Qwen3 Next 80B A3B Thinking model',
@@ -162,28 +156,13 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
     description: 'Qwen3 32B model',
   },
   {
-    id: 'qwen/qwen3-14b:free',
-    name: 'Qwen 3 14B (Free)',
-    description: 'Qwen 3 14B model',
-  },
-  {
-    id: 'qwen/qwen3-4b:free',
-    name: 'Qwen3 4B (Free)',
-    description: '4B dense model with dual-mode architecture for reasoning and dialogue generation',
+    id: 'qwen/qwen3-8b',
+    name: 'Qwen3 8B',
+    description: 'Qwen3 8B model',
   },
   {
     id: 'z-ai/glm-4.6',
     name: 'GLM 4.6',
     description: 'Z-AI GLM 4.6 model',
-  },
-  {
-    id: 'z-ai/glm-4.5-air:free',
-    name: 'GLM-4.5 Air (Free)',
-    description: 'Z-AI GLM-4.5 Air model',
-  },
-  {
-    id: 'deepseek/deepseek-r1-0528',
-    name: 'DeepSeek R1 0528',
-    description: 'DeepSeek R1 0528 model',
   },
 ]

@@ -5,6 +5,8 @@ export interface SolverResult {
   solution: MoveDirection[] | null
   moveCount: number
   nodesExplored: number
+  /** True if solver hit node limit without finding solution (puzzle may still be solvable) */
+  hitLimit: boolean
 }
 
 interface SolverState {
@@ -42,6 +44,7 @@ export function solvePuzzle(level: SokobanLevel, maxNodes = 50000): SolverResult
       solution: [],
       moveCount: 0,
       nodesExplored: 1,
+      hitLimit: false,
     }
   }
 
@@ -105,6 +108,7 @@ export function solvePuzzle(level: SokobanLevel, maxNodes = 50000): SolverResult
           solution: newState.moves,
           moveCount: newState.moves.length,
           nodesExplored,
+          hitLimit: false,
         }
       }
 
@@ -112,12 +116,15 @@ export function solvePuzzle(level: SokobanLevel, maxNodes = 50000): SolverResult
     }
   }
 
-  // No solution found within node limit
+  // Determine if we hit the limit or exhausted all possibilities
+  const hitLimit = nodesExplored >= maxNodes
+
   return {
     solvable: false,
     solution: null,
     moveCount: 0,
     nodesExplored,
+    hitLimit,
   }
 }
 

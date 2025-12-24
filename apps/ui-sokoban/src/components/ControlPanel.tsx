@@ -63,7 +63,12 @@ export function ControlPanel({
     }
 
     const result = solvePuzzle(tempLevel, 50000)
-    return result.solvable ? { moveCount: result.moveCount, solution: result.solution } : null
+    return {
+      solvable: result.solvable,
+      moveCount: result.moveCount,
+      solution: result.solution,
+      hitLimit: result.hitLimit,
+    }
   }, [state])
 
   return (
@@ -101,9 +106,9 @@ export function ControlPanel({
       </div>
 
       {/* Solver optimal solution */}
-      {state && !state.isWon && (
+      {state && !state.isWon && solverResult && (
         <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
-          {solverResult !== null ? (
+          {solverResult.solvable ? (
             <>
               <span>
                 Shortest Solution:{' '}
@@ -127,6 +132,8 @@ export function ControlPanel({
                 </Button>
               )}
             </>
+          ) : solverResult.hitLimit ? (
+            <span className="text-blue-500">Solver limit hit (puzzle may be solvable)</span>
           ) : (
             <span className="text-amber-500">No solution found</span>
           )}

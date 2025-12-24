@@ -1,13 +1,30 @@
 import { CELL_SIZE } from '@src/constants'
 import type { GameState, Position } from '@src/types'
 
+interface SelectedEntity {
+  type: 'player' | 'box' | 'goal'
+  index?: number
+  x: number
+  y: number
+}
+
 interface SokobanGridProps {
   state: GameState | null
   highlightedCells?: Position[]
   className?: string
+  isEditing?: boolean
+  onCellClick?: (x: number, y: number) => void
+  selectedEntity?: SelectedEntity | null
 }
 
-export function SokobanGrid({ state, highlightedCells = [], className = '' }: SokobanGridProps) {
+export function SokobanGrid({
+  state,
+  highlightedCells = [],
+  className = '',
+  isEditing = false,
+  onCellClick,
+  selectedEntity = null,
+}: SokobanGridProps) {
   if (!state) {
     return (
       <div
@@ -58,10 +75,28 @@ export function SokobanGrid({ state, highlightedCells = [], className = '' }: So
             const cellIsHighlighted = isHighlighted(x, y)
             const cellKey = `cell-${x}-${y}`
 
+            // Check if this cell's entity is selected
+            const isSelectedPlayer = selectedEntity?.type === 'player' && cellIsPlayer
+            const isSelectedBox =
+              selectedEntity?.type === 'box' &&
+              cellHasBox &&
+              selectedEntity.x === x &&
+              selectedEntity.y === y
+            const isSelectedGoal =
+              selectedEntity?.type === 'goal' &&
+              cellIsGoal &&
+              !cellHasBox &&
+              !cellIsPlayer &&
+              selectedEntity.x === x &&
+              selectedEntity.y === y
+
+            // Can click if: editing mode on
+            const canClick = isEditing
+
             return (
               <div
                 key={cellKey}
-                className="relative transition-colors duration-150"
+                className={`relative transition-colors duration-150 ${canClick ? 'cursor-pointer hover:brightness-110' : ''}`}
                 style={{
                   backgroundColor: isWall
                     ? 'hsl(var(--sokoban-wall))'
@@ -69,6 +104,19 @@ export function SokobanGrid({ state, highlightedCells = [], className = '' }: So
                       ? 'hsl(var(--primary) / 0.2)'
                       : 'hsl(var(--sokoban-floor))',
                 }}
+                onClick={canClick ? () => onCellClick?.(x, y) : undefined}
+                onKeyDown={
+                  canClick
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          onCellClick?.(x, y)
+                        }
+                      }
+                    : undefined
+                }
+                role={canClick ? 'button' : undefined}
+                tabIndex={canClick ? 0 : undefined}
               >
                 {/* Goal marker (underneath box/player) */}
                 {cellIsGoal && !cellHasBox && !cellIsPlayer && (
@@ -77,6 +125,7 @@ export function SokobanGrid({ state, highlightedCells = [], className = '' }: So
                     style={{
                       inset: 8,
                       backgroundColor: 'hsl(var(--sokoban-goal))',
+                      boxShadow: isSelectedGoal ? '0 0 0 3px #facc15' : undefined,
                     }}
                   />
                 )}
@@ -101,7 +150,12 @@ export function SokobanGrid({ state, highlightedCells = [], className = '' }: So
                       backgroundColor: cellBoxOnGoal
                         ? 'hsl(var(--sokoban-box-done))'
                         : 'hsl(var(--sokoban-box))',
-                      border: cellBoxOnGoal ? 'none' : '2px solid hsl(var(--sokoban-box) / 0.7)',
+                      border: isSelectedBox
+                        ? '3px solid #facc15'
+                        : cellBoxOnGoal
+                          ? 'none'
+                          : '2px solid hsl(var(--sokoban-box) / 0.7)',
+                      boxShadow: isSelectedBox ? '0 0 8px #facc15' : undefined,
                     }}
                   >
                     {cellBoxOnGoal && <span className="text-xs">✓</span>}
@@ -115,7 +169,10 @@ export function SokobanGrid({ state, highlightedCells = [], className = '' }: So
                     style={{
                       inset: 4,
                       backgroundColor: 'hsl(var(--sokoban-player))',
-                      border: '3px solid hsl(var(--sokoban-player) / 0.5)',
+                      border: isSelectedPlayer
+                        ? '3px solid #facc15'
+                        : '3px solid hsl(var(--sokoban-player) / 0.5)',
+                      boxShadow: isSelectedPlayer ? '0 0 8px #facc15' : undefined,
                     }}
                   >
                     <div
