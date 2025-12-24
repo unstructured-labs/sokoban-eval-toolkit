@@ -14,12 +14,30 @@ import { Switch } from '@sokoban-eval-toolkit/ui-library/components/switch'
 import { DIFFICULTY_LABELS } from '@src/constants'
 import type { Difficulty, SokobanLevel } from '@src/types'
 import { generateLevel } from '@src/utils/levelGenerator'
-import { getMediumLevel, getMediumLevelCount, getRandomMediumLevel } from '@src/utils/levelLoader'
-import { AlertTriangle, ChevronLeft, ChevronRight, Dices, Shuffle } from 'lucide-react'
+import {
+  getMediumLevel,
+  getMediumLevelCount,
+  getMicrobanLevel,
+  getMicrobanLevelCount,
+  getRandomMediumLevel,
+  getRandomMicrobanLevel,
+} from '@src/utils/levelLoader'
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Dices,
+  FlipVertical,
+  RotateCw,
+  Shuffle,
+} from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 
 // Difficulties that use procedural generation
-const GENERATED_DIFFICULTIES: Exclude<Difficulty, 'classic'>[] = ['easy', 'medium', 'hard']
+const GENERATED_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard']
+
+// Difficulties that use curated level sets
+const CURATED_DIFFICULTIES: Difficulty[] = ['classic', 'microban']
 
 // Info text for each difficulty
 const DIFFICULTY_INFO: Record<Difficulty, string> = {
@@ -27,6 +45,7 @@ const DIFFICULTY_INFO: Record<Difficulty, string> = {
   medium: '3 boxes. More challenging with longer solutions.',
   hard: '4 boxes. Complex puzzles requiring careful planning.',
   classic: 'Curated puzzles from boxoban-levels (10×10, 4 boxes).',
+  microban: 'Classic beginner puzzles by David Skinner (155 levels).',
 }
 
 interface LevelSelectorProps {
@@ -35,6 +54,8 @@ interface LevelSelectorProps {
   currentLevel?: SokobanLevel | null
   isEditing?: boolean
   onEditingChange?: (editing: boolean) => void
+  onFlipBoard?: () => void
+  onRotateBoard?: () => void
 }
 
 export function LevelSelector({
@@ -43,6 +64,8 @@ export function LevelSelector({
   currentLevel,
   isEditing = false,
   onEditingChange,
+  onFlipBoard,
+  onRotateBoard,
 }: LevelSelectorProps) {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy')
   const [puzzleNumber, setPuzzleNumber] = useState<number>(1)
@@ -56,47 +79,73 @@ export function LevelSelector({
   const settingsRef = useRef({ difficulty, minSolutionSteps, maxAttempts, gridSize })
   settingsRef.current = { difficulty, minSolutionSteps, maxAttempts, gridSize }
 
-  const classicLevelCount = getMediumLevelCount()
-  const isGenerated = GENERATED_DIFFICULTIES.includes(difficulty as Exclude<Difficulty, 'classic'>)
+  const isGenerated = GENERATED_DIFFICULTIES.includes(difficulty)
+  const isCurated = CURATED_DIFFICULTIES.includes(difficulty)
 
-  const handleLoadClassic = useCallback(() => {
+  // Get level count for curated difficulties
+  const curatedLevelCount =
+    difficulty === 'microban'
+      ? getMicrobanLevelCount()
+      : difficulty === 'classic'
+        ? getMediumLevelCount()
+        : 0
+
+  // Helper to get level based on current difficulty
+  const getCuratedLevel = useCallback(
+    (index: number) => {
+      if (difficulty === 'microban') {
+        return getMicrobanLevel(index)
+      }
+      return getMediumLevel(index)
+    },
+    [difficulty],
+  )
+
+  const getRandomCuratedLevel = useCallback(() => {
+    if (difficulty === 'microban') {
+      return getRandomMicrobanLevel()
+    }
+    return getRandomMediumLevel()
+  }, [difficulty])
+
+  const handleLoadCurated = useCallback(() => {
     setError(null)
-    const level = getMediumLevel(puzzleNumber - 1)
+    const level = getCuratedLevel(puzzleNumber - 1)
     if (level) {
       onLevelLoad(level)
     } else {
       setError(`Puzzle #${puzzleNumber} not found`)
     }
-  }, [puzzleNumber, onLevelLoad])
+  }, [puzzleNumber, onLevelLoad, getCuratedLevel])
 
-  const handleRandomClassic = useCallback(() => {
+  const handleRandomCurated = useCallback(() => {
     setError(null)
-    const level = getRandomMediumLevel()
+    const level = getRandomCuratedLevel()
     setPuzzleNumber(level.puzzleNumber)
     onLevelLoad(level)
-  }, [onLevelLoad])
+  }, [onLevelLoad, getRandomCuratedLevel])
 
-  const handlePrevClassic = useCallback(() => {
+  const handlePrevCurated = useCallback(() => {
     if (puzzleNumber <= 1) return
     setError(null)
     const newNumber = puzzleNumber - 1
     setPuzzleNumber(newNumber)
-    const level = getMediumLevel(newNumber - 1)
+    const level = getCuratedLevel(newNumber - 1)
     if (level) {
       onLevelLoad(level)
     }
-  }, [puzzleNumber, onLevelLoad])
+  }, [puzzleNumber, onLevelLoad, getCuratedLevel])
 
-  const handleNextClassic = useCallback(() => {
-    if (puzzleNumber >= classicLevelCount) return
+  const handleNextCurated = useCallback(() => {
+    if (puzzleNumber >= curatedLevelCount) return
     setError(null)
     const newNumber = puzzleNumber + 1
     setPuzzleNumber(newNumber)
-    const level = getMediumLevel(newNumber - 1)
+    const level = getCuratedLevel(newNumber - 1)
     if (level) {
       onLevelLoad(level)
     }
-  }, [puzzleNumber, classicLevelCount, onLevelLoad])
+  }, [puzzleNumber, curatedLevelCount, onLevelLoad, getCuratedLevel])
 
   const handleGenerate = useCallback(() => {
     if (!isGenerated) return
@@ -113,7 +162,7 @@ export function LevelSelector({
         gridSize: size,
       } = settingsRef.current
       try {
-        const level = generateLevel(diff as Exclude<Difficulty, 'classic'>, {
+        const level = generateLevel(diff as Exclude<Difficulty, 'classic' | 'microban'>, {
           minSolutionLength: minSteps,
           maxAttempts: attempts,
           gridSize: size,
@@ -239,19 +288,6 @@ export function LevelSelector({
             </div>
           </div>
 
-          {/* Editing toggle */}
-          <div className="flex items-center justify-between">
-            <Label htmlFor="edit-mode" className="text-xs text-muted-foreground cursor-pointer">
-              Enable Editing
-            </Label>
-            <Switch
-              id="edit-mode"
-              checked={isEditing}
-              onCheckedChange={onEditingChange}
-              disabled={disabled || !currentLevel}
-            />
-          </div>
-
           {/* Generation stats from last puzzle */}
           {currentLevel?.generationIterations && (
             <div
@@ -287,27 +323,27 @@ export function LevelSelector({
             {isGenerating ? 'Generating...' : 'Generate Puzzle'}
           </Button>
         </>
-      ) : (
+      ) : isCurated ? (
         <>
-          {/* Classic mode - embedded levels */}
+          {/* Curated mode - embedded levels */}
           <div className="space-y-1.5">
-            <span className="text-xs text-muted-foreground">Puzzle # (1-{classicLevelCount})</span>
+            <span className="text-xs text-muted-foreground">Puzzle # (1-{curatedLevelCount})</span>
             <div className="flex gap-1">
               <Input
                 type="number"
                 min={1}
-                max={classicLevelCount}
+                max={curatedLevelCount}
                 value={puzzleNumber}
                 onChange={(e) =>
                   setPuzzleNumber(
-                    Math.min(classicLevelCount, Math.max(1, Number.parseInt(e.target.value) || 1)),
+                    Math.min(curatedLevelCount, Math.max(1, Number.parseInt(e.target.value) || 1)),
                   )
                 }
                 disabled={disabled}
                 className="h-8 text-xs flex-1"
               />
               <Button
-                onClick={handlePrevClassic}
+                onClick={handlePrevCurated}
                 disabled={disabled || puzzleNumber <= 1}
                 size="sm"
                 variant="secondary"
@@ -317,8 +353,8 @@ export function LevelSelector({
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <Button
-                onClick={handleNextClassic}
-                disabled={disabled || puzzleNumber >= classicLevelCount}
+                onClick={handleNextCurated}
+                disabled={disabled || puzzleNumber >= curatedLevelCount}
                 size="sm"
                 variant="secondary"
                 className="h-8 px-2"
@@ -332,7 +368,7 @@ export function LevelSelector({
           {/* Buttons */}
           <div className="flex gap-2">
             <Button
-              onClick={handleLoadClassic}
+              onClick={handleLoadCurated}
               disabled={disabled}
               size="sm"
               className="flex-1 h-8 text-xs"
@@ -340,7 +376,7 @@ export function LevelSelector({
               Load Level
             </Button>
             <Button
-              onClick={handleRandomClassic}
+              onClick={handleRandomCurated}
               disabled={disabled}
               size="sm"
               variant="secondary"
@@ -353,18 +389,79 @@ export function LevelSelector({
 
           {/* Source link */}
           <div className="text-[10px] text-muted-foreground">
-            Levels from{' '}
-            <a
-              href="https://github.com/google-deepmind/boxoban-levels"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              boxoban-levels
-            </a>
+            {difficulty === 'microban' ? (
+              <>
+                Microban by{' '}
+                <a
+                  href="http://www.bentonrea.com/~sasquatch/sokoban/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  David Skinner
+                </a>
+              </>
+            ) : (
+              <>
+                Levels from{' '}
+                <a
+                  href="https://github.com/google-deepmind/boxoban-levels"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  boxoban-levels
+                </a>
+              </>
+            )}
           </div>
         </>
-      )}
+      ) : null}
+
+      {/* Customization section - always visible */}
+      <Separator />
+      <div className="space-y-3">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Customization
+        </span>
+
+        {/* Enable Editing toggle */}
+        <div className="flex items-center justify-between">
+          <Label htmlFor="edit-mode" className="text-xs text-muted-foreground cursor-pointer">
+            Enable Editing
+          </Label>
+          <Switch
+            id="edit-mode"
+            checked={isEditing}
+            onCheckedChange={onEditingChange}
+            disabled={disabled || !currentLevel}
+          />
+        </div>
+
+        {/* Flip and Rotate buttons */}
+        <div className="flex gap-2">
+          <Button
+            onClick={onFlipBoard}
+            disabled={disabled || !currentLevel}
+            size="sm"
+            variant="secondary"
+            className="flex-1 h-8 text-xs"
+          >
+            <FlipVertical className="w-3.5 h-3.5 mr-1.5" />
+            Flip Board
+          </Button>
+          <Button
+            onClick={onRotateBoard}
+            disabled={disabled || !currentLevel}
+            size="sm"
+            variant="secondary"
+            className="flex-1 h-8 text-xs"
+          >
+            <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+            Rotate Board
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

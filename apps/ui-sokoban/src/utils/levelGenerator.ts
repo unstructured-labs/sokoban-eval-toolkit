@@ -26,8 +26,8 @@ interface DifficultyPreset {
   maxSolverNodes: number
 }
 
-// Difficulty presets
-const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic'>, DifficultyPreset> = {
+// Difficulty presets (only for generated difficulties, not classic or microban)
+const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic' | 'microban'>, DifficultyPreset> = {
   easy: {
     width: 8,
     height: 8,
@@ -66,7 +66,7 @@ const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic'>, DifficultyPrese
  * 6. Repeat until valid puzzle found or max attempts reached
  */
 export function generateLevel(
-  difficulty: Exclude<Difficulty, 'classic'>,
+  difficulty: Exclude<Difficulty, 'classic' | 'microban'>,
   options?: GeneratorOptions,
 ): SokobanLevel {
   const preset = DIFFICULTY_PRESETS[difficulty]

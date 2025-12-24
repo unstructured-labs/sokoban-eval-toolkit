@@ -24,7 +24,7 @@ export interface SokobanLevel {
   usedFallback?: boolean // True if generator fell back to simple puzzle
 }
 
-export type Difficulty = 'easy' | 'medium' | 'hard' | 'classic'
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'classic' | 'microban'
 
 // Movement
 export type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
@@ -78,6 +78,7 @@ export interface PromptOptions {
   coordinateFormat: boolean
   includeNotationGuide: boolean
   executionMode: 'fullSolution' | 'moveByMove'
+  cipherSymbols: boolean
 }
 
 // AI session metrics

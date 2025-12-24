@@ -22,6 +22,7 @@ export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   medium: 'Medium (3 boxes)',
   hard: 'Hard (4 boxes)',
   classic: 'Classic (Boxoban)',
+  microban: 'Microban',
 }
 
 // Move key mappings (arrow keys only)

@@ -348,6 +348,109 @@ export function SokobanGame() {
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
   }, [isDraggingWalls, handleDragEnd])
 
+  // Flip board 180 degrees
+  const handleFlipBoard = useCallback(() => {
+    if (!gameState) return
+
+    const { level, playerPos, boxes } = gameState
+    const { width, height } = level
+
+    // Flip terrain (reverse rows and columns)
+    const newTerrain: CellTerrain[][] = []
+    for (let y = height - 1; y >= 0; y--) {
+      const newRow: CellTerrain[] = []
+      for (let x = width - 1; x >= 0; x--) {
+        newRow.push(level.terrain[y]?.[x] || 'floor')
+      }
+      newTerrain.push(newRow)
+    }
+
+    // Transform position helper
+    const flipPos = (pos: Position): Position => ({
+      x: width - 1 - pos.x,
+      y: height - 1 - pos.y,
+    })
+
+    // Transform all positions
+    const newPlayerPos = flipPos(playerPos)
+    const newBoxes = boxes.map(flipPos)
+    const newGoals = level.goals.map(flipPos)
+    const newPlayerStart = flipPos(level.playerStart)
+    const newBoxStarts = level.boxStarts.map(flipPos)
+
+    const newLevel: SokobanLevel = {
+      ...level,
+      terrain: newTerrain,
+      playerStart: newPlayerStart,
+      boxStarts: newBoxStarts,
+      goals: newGoals,
+    }
+
+    setGameState({
+      ...gameState,
+      level: newLevel,
+      playerPos: newPlayerPos,
+      boxes: newBoxes,
+    })
+    setCurrentLevel(newLevel)
+  }, [gameState])
+
+  // Rotate board 90 degrees clockwise
+  const handleRotateBoard = useCallback(() => {
+    if (!gameState) return
+
+    const { level, playerPos, boxes } = gameState
+    const { width, height } = level
+
+    // Rotate terrain 90 degrees clockwise
+    // New width = old height, new height = old width
+    const newWidth = height
+    const newHeight = width
+    const newTerrain: CellTerrain[][] = []
+
+    for (let newY = 0; newY < newHeight; newY++) {
+      const newRow: CellTerrain[] = []
+      for (let newX = 0; newX < newWidth; newX++) {
+        // For clockwise rotation: new(x,y) = old(height-1-y, x)
+        const oldX = newY
+        const oldY = height - 1 - newX
+        newRow.push(level.terrain[oldY]?.[oldX] || 'floor')
+      }
+      newTerrain.push(newRow)
+    }
+
+    // Transform position helper (clockwise: new(x,y) = (height-1-oldY, oldX))
+    const rotatePos = (pos: Position): Position => ({
+      x: height - 1 - pos.y,
+      y: pos.x,
+    })
+
+    // Transform all positions
+    const newPlayerPos = rotatePos(playerPos)
+    const newBoxes = boxes.map(rotatePos)
+    const newGoals = level.goals.map(rotatePos)
+    const newPlayerStart = rotatePos(level.playerStart)
+    const newBoxStarts = level.boxStarts.map(rotatePos)
+
+    const newLevel: SokobanLevel = {
+      ...level,
+      width: newWidth,
+      height: newHeight,
+      terrain: newTerrain,
+      playerStart: newPlayerStart,
+      boxStarts: newBoxStarts,
+      goals: newGoals,
+    }
+
+    setGameState({
+      ...gameState,
+      level: newLevel,
+      playerPos: newPlayerPos,
+      boxes: newBoxes,
+    })
+    setCurrentLevel(newLevel)
+  }, [gameState])
+
   // Handle cell click for editing mode
   const handleCellClick = useCallback(
     (x: number, y: number) => {
@@ -543,6 +646,8 @@ export function SokobanGame() {
               currentLevel={currentLevel}
               isEditing={isEditing}
               onEditingChange={setIsEditing}
+              onFlipBoard={handleFlipBoard}
+              onRotateBoard={handleRotateBoard}
             />
             <ControlPanel
               state={gameState}

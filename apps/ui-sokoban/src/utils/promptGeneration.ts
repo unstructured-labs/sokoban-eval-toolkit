@@ -1,16 +1,67 @@
 import type { GameState, PromptOptions } from '@src/types'
 import { gameStateToAscii, gameStateToAsciiWithCoords } from './levelParser'
 
+// Cipher symbol mapping (non-standard symbols to replace standard Sokoban notation)
+const CIPHER_MAP = {
+  wall: 'W',
+  player: 'P',
+  box: 'B',
+  goal: 'G',
+  boxOnGoal: 'X',
+  playerOnGoal: 'Y',
+  floor: '_',
+} as const
+
+/**
+ * Convert standard Sokoban ASCII to cipher symbols.
+ */
+function applyCipherSymbols(ascii: string): string {
+  return ascii
+    .replace(/#/g, CIPHER_MAP.wall)
+    .replace(/@/g, CIPHER_MAP.player)
+    .replace(/\$/g, CIPHER_MAP.box)
+    .replace(/\./g, CIPHER_MAP.goal)
+    .replace(/\*/g, CIPHER_MAP.boxOnGoal)
+    .replace(/\+/g, CIPHER_MAP.playerOnGoal)
+    .replace(/ /g, CIPHER_MAP.floor)
+}
+
 /**
  * Generate a prompt for an AI to solve a Sokoban puzzle.
  */
 export function generateSokobanPrompt(state: GameState, options: PromptOptions): string {
   const parts: string[] = []
 
+  // Use cipher symbols if enabled
+  const useCipher = options.cipherSymbols
+
+  // Symbol definitions based on mode
+  const symbols = useCipher
+    ? {
+        wall: CIPHER_MAP.wall,
+        player: CIPHER_MAP.player,
+        box: CIPHER_MAP.box,
+        goal: CIPHER_MAP.goal,
+        boxOnGoal: CIPHER_MAP.boxOnGoal,
+        playerOnGoal: CIPHER_MAP.playerOnGoal,
+        floor: CIPHER_MAP.floor,
+      }
+    : {
+        wall: '#',
+        player: '@',
+        box: '$',
+        goal: '.',
+        boxOnGoal: '*',
+        playerOnGoal: '+',
+        floor: '(space)',
+      }
+
   // Header
   parts.push('# Sokoban Puzzle')
   parts.push('')
-  parts.push('You are solving a Sokoban puzzle. Push all boxes ($) onto goals (.) to win.')
+  parts.push(
+    `You are solving a Sokoban puzzle. Push all boxes (${symbols.box}) onto goals (${symbols.goal}) to win.`,
+  )
   parts.push('')
 
   // Rules
@@ -19,24 +70,25 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   parts.push('- You can push a box by walking into it (if the space behind it is free)')
   parts.push('- You cannot pull boxes')
   parts.push('- You cannot push more than one box at a time')
-  parts.push('- Walls (#) are impassable')
+  parts.push(`- Walls (${symbols.wall}) are impassable`)
   parts.push('')
 
   // Current state representation
   if (options.asciiGrid) {
     parts.push('## Current State (ASCII Grid)')
     parts.push('```')
-    parts.push(gameStateToAsciiWithCoords(state))
+    const gridAscii = gameStateToAsciiWithCoords(state)
+    parts.push(useCipher ? applyCipherSymbols(gridAscii) : gridAscii)
     parts.push('```')
     parts.push('')
     parts.push('Legend:')
-    parts.push('- # = Wall')
-    parts.push('- @ = Player')
-    parts.push('- $ = Box')
-    parts.push('- . = Goal')
-    parts.push('- * = Box on Goal')
-    parts.push('- + = Player on Goal')
-    parts.push('- (space) = Floor')
+    parts.push(`- ${symbols.wall} = Wall`)
+    parts.push(`- ${symbols.player} = Player`)
+    parts.push(`- ${symbols.box} = Box`)
+    parts.push(`- ${symbols.goal} = Goal`)
+    parts.push(`- ${symbols.boxOnGoal} = Box on Goal`)
+    parts.push(`- ${symbols.playerOnGoal} = Player on Goal`)
+    parts.push(`- ${symbols.floor} = Floor`)
     parts.push('')
   }
 
@@ -150,4 +202,5 @@ export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {
   coordinateFormat: true,
   includeNotationGuide: true,
   executionMode: 'fullSolution',
+  cipherSymbols: false,
 }

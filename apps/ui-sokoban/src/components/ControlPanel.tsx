@@ -1,7 +1,7 @@
 import { Button } from '@sokoban-eval-toolkit/ui-library/components/button'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
 import type { GameState, MoveDirection } from '@src/types'
-import { getBoxesOnGoalsCount, isSimpleDeadlock } from '@src/utils/gameEngine'
+import { isSimpleDeadlock } from '@src/utils/gameEngine'
 import { solvePuzzle } from '@src/utils/sokobanSolver'
 import { AlertTriangle, RotateCcw, Undo2 } from 'lucide-react'
 import { useMemo } from 'react'
@@ -47,8 +47,6 @@ export function ControlPanel({
     return `${minutes}:${secs.toString().padStart(2, '0')}`
   }, [state?.startTime, state?.endTime, aiInferenceTimeMs])
 
-  const boxesOnGoals = state ? getBoxesOnGoalsCount(state) : 0
-  const totalBoxes = state?.boxes.length ?? 0
   const hasDeadlock = state ? isSimpleDeadlock(state) : false
 
   // Compute optimal solution from current state
@@ -83,25 +81,15 @@ export function ControlPanel({
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="bg-muted/30 rounded-md px-3 py-2">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Moves</div>
-          <div className="text-lg font-semibold tabular-nums">{state?.moveCount ?? 0}</div>
+        <div className="bg-muted/30 rounded-md px-2 py-1.5">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Moves</div>
+          <div className="text-sm font-semibold tabular-nums">{state?.moveCount ?? 0}</div>
         </div>
-        <div className="bg-muted/30 rounded-md px-3 py-2">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Pushes</div>
-          <div className="text-lg font-semibold tabular-nums">{state?.pushCount ?? 0}</div>
-        </div>
-        <div className="bg-muted/30 rounded-md px-3 py-2">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Progress</div>
-          <div className="text-lg font-semibold tabular-nums">
-            {boxesOnGoals}/{totalBoxes}
-          </div>
-        </div>
-        <div className="bg-muted/30 rounded-md px-3 py-2">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
+        <div className="bg-muted/30 rounded-md px-2 py-1.5">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wide">
             {aiInferenceTimeMs != null && aiInferenceTimeMs > 0 ? 'AI Time' : 'Time'}
           </div>
-          <div className="text-lg font-semibold tabular-nums">{displayTime ?? '--:--'}</div>
+          <div className="text-sm font-semibold tabular-nums">{displayTime ?? '--:--'}</div>
         </div>
       </div>
 
