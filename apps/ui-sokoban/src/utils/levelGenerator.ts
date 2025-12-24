@@ -1,57 +1,73 @@
-import type { CellTerrain, Position, SokobanLevel } from '@src/types'
+import type { CellTerrain, Position, SokobanLevel } from '../types'
+import { solvePuzzle } from './sokobanSolver'
 
 interface GeneratorOptions {
   width?: number
   height?: number
   numBoxes?: number
-  minPushes?: number
+  minSolutionLength?: number
+  maxSolutionLength?: number
   maxAttempts?: number
 }
 
 const DEFAULT_OPTIONS: Required<GeneratorOptions> = {
   width: 8,
   height: 8,
-  numBoxes: 1,
-  minPushes: 3,
-  maxAttempts: 100,
+  numBoxes: 2,
+  minSolutionLength: 5,
+  maxSolutionLength: 15,
+  maxAttempts: 200,
 }
 
 /**
- * Generate a simple solvable Sokoban puzzle.
+ * Generate a solvable Sokoban puzzle with verified optimal solution.
  *
- * Strategy: Build puzzles that are guaranteed solvable by construction.
+ * Strategy:
  * 1. Create an open room with walls on the border
  * 2. Place goal(s) in valid interior positions
  * 3. For each goal, trace a path backward to place box and ensure push path
  * 4. Place player where they can execute the solution
+ * 5. Verify with BFS solver and ensure solution length is within range
  */
 export function generateEasyLevel(options: GeneratorOptions = {}): SokobanLevel {
   const opts = { ...DEFAULT_OPTIONS, ...options }
-  const { width, height, numBoxes, minPushes, maxAttempts } = opts
+  const { width, height, numBoxes, minSolutionLength, maxSolutionLength, maxAttempts } = opts
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const result = tryGenerateLevel(width, height, numBoxes, minPushes)
-    if (result) {
-      return {
-        ...result,
-        id: `easy-generated-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        difficulty: 'easy',
-        fileSource: 'generated',
-        puzzleNumber: attempt + 1,
-      }
+    const result = tryGenerateLevel(width, height, numBoxes)
+    if (!result) continue
+
+    const candidateLevel: SokobanLevel = {
+      ...result,
+      id: `easy-generated-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      difficulty: 'easy',
+      fileSource: 'generated',
+      puzzleNumber: attempt + 1,
+    }
+
+    // Verify with solver
+    const solverResult = solvePuzzle(candidateLevel, 50000)
+
+    if (!solverResult.solvable) continue
+    if (solverResult.moveCount < minSolutionLength) continue
+    if (solverResult.moveCount > maxSolutionLength) continue
+
+    // Valid puzzle - add optimal moves and return
+    return {
+      ...candidateLevel,
+      optimalMoves: solverResult.moveCount,
     }
   }
 
-  // Fallback: return a trivial puzzle
-  return createTrivialPuzzle(width, height)
+  // Fallback: return a simple 2-box puzzle
+  return createFallbackPuzzle(width, height)
 }
 
 function tryGenerateLevel(
   width: number,
   height: number,
   numBoxes: number,
-  minPushes: number,
-): Omit<SokobanLevel, 'id' | 'difficulty' | 'fileSource' | 'puzzleNumber'> | null {
+): Omit<SokobanLevel, 'id' | 'difficulty' | 'fileSource' | 'puzzleNumber' | 'optimalMoves'> | null {
   // Create terrain with walls on border, floor inside
   const terrain: CellTerrain[][] = []
   for (let y = 0; y < height; y++) {
@@ -67,7 +83,7 @@ function tryGenerateLevel(
   }
 
   // Add some random internal walls for interest (but not too many)
-  const numWalls = Math.floor(width * height * 0.1)
+  const numWalls = Math.floor(width * height * 0.08)
   for (let i = 0; i < numWalls; i++) {
     const x = randomInt(2, width - 3)
     const y = randomInt(2, height - 3)
@@ -85,7 +101,7 @@ function tryGenerateLevel(
     terrain[goal.y][goal.x] = 'goal'
 
     // Find a valid box starting position (can be pushed to goal)
-    const boxPath = generateBoxPath(terrain, goal, minPushes, width, height, boxes)
+    const boxPath = generateBoxPath(terrain, goal, width, height, boxes)
     if (!boxPath) return null
 
     boxes.push(boxPath.boxStart)
@@ -136,23 +152,26 @@ function findValidGoalPosition(
 function generateBoxPath(
   terrain: CellTerrain[][],
   goal: Position,
-  minPushes: number,
   width: number,
   height: number,
   existingBoxes: Position[],
 ): { boxStart: Position } | null {
-  // Trace backward from goal: find a path of `minPushes` pushes
-  // Each step: box moves opposite to push direction
+  // Trace backward from goal: find a position for the box
+  // Box should be 2-4 pushes away from goal
+  const minDistance = 2
+  const maxDistance = 4
 
   let current = { ...goal }
   const directions = [
-    { dx: 0, dy: -1 }, // up (box was pushed from below)
-    { dx: 0, dy: 1 }, // down
-    { dx: -1, dy: 0 }, // left
-    { dx: 1, dy: 0 }, // right
+    { dx: 0, dy: -1 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+    { dx: 1, dy: 0 },
   ]
 
-  for (let push = 0; push < minPushes; push++) {
+  const targetPushes = randomInt(minDistance, maxDistance)
+
+  for (let push = 0; push < targetPushes; push++) {
     // Shuffle directions for variety
     const shuffled = [...directions].sort(() => Math.random() - 0.5)
     let moved = false
@@ -172,8 +191,8 @@ function generateBoxPath(
     }
 
     if (!moved) {
-      // Can't extend path further, but might be enough
-      if (push >= 1) break
+      // Can't extend path further
+      if (push >= minDistance - 1) break
       return null
     }
   }
@@ -192,7 +211,6 @@ function findPlayerPosition(
   allBoxes: Position[],
 ): Position | null {
   // Player needs to be positioned to push the first box
-  // Find a position adjacent to box that allows pushing toward goal
   const directions = [
     { dx: 0, dy: -1 },
     { dx: 0, dy: 1 },
@@ -260,8 +278,8 @@ function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-function createTrivialPuzzle(width: number, height: number): SokobanLevel {
-  // Simple 1-push puzzle as fallback
+function createFallbackPuzzle(width: number, height: number): SokobanLevel {
+  // Create a simple but non-trivial 2-box puzzle
   const terrain: CellTerrain[][] = []
   for (let y = 0; y < height; y++) {
     const row: CellTerrain[] = []
@@ -278,18 +296,34 @@ function createTrivialPuzzle(width: number, height: number): SokobanLevel {
   const centerX = Math.floor(width / 2)
   const centerY = Math.floor(height / 2)
 
-  terrain[centerY][centerX + 1] = 'goal'
+  // Place two goals
+  terrain[centerY - 1][centerX + 2] = 'goal'
+  terrain[centerY + 1][centerX + 2] = 'goal'
 
-  return {
-    id: `easy-trivial-${Date.now()}`,
+  const level: SokobanLevel = {
+    id: `easy-fallback-${Date.now()}`,
     width,
     height,
     terrain,
-    playerStart: { x: centerX - 1, y: centerY },
-    boxStarts: [{ x: centerX, y: centerY }],
-    goals: [{ x: centerX + 1, y: centerY }],
+    playerStart: { x: centerX - 2, y: centerY },
+    boxStarts: [
+      { x: centerX, y: centerY - 1 },
+      { x: centerX, y: centerY + 1 },
+    ],
+    goals: [
+      { x: centerX + 2, y: centerY - 1 },
+      { x: centerX + 2, y: centerY + 1 },
+    ],
     difficulty: 'easy',
     fileSource: 'generated',
     puzzleNumber: 1,
   }
+
+  // Calculate optimal moves for fallback
+  const result = solvePuzzle(level)
+  if (result.solvable) {
+    level.optimalMoves = result.moveCount
+  }
+
+  return level
 }

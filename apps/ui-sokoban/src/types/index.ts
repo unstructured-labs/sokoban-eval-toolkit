@@ -19,6 +19,7 @@ export interface SokobanLevel {
   difficulty: Difficulty
   fileSource: string
   puzzleNumber: number
+  optimalMoves?: number // Minimum moves to solve (from solver)
 }
 
 export type Difficulty = 'easy' | 'medium'

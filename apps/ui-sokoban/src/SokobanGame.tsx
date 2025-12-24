@@ -184,6 +184,9 @@ export function SokobanGame() {
           {gameState && !gameState.isWon && (
             <div className="text-xs text-muted-foreground mb-3">
               Progress: {boxesOnGoals}/{totalBoxes} boxes on goals
+              {currentLevel?.optimalMoves && (
+                <span className="ml-2">· Optimal: {currentLevel.optimalMoves} moves</span>
+              )}
             </div>
           )}
 
@@ -210,7 +213,12 @@ export function SokobanGame() {
           {gameState?.isWon && (
             <div className="mt-3 bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-2 text-center">
               <div className="text-green-500 font-medium text-sm">
-                Completed! {gameState.moveHistory.length} moves ·{' '}
+                Completed in {gameState.moveHistory.length} moves
+                {currentLevel?.optimalMoves && (
+                  <span className="text-green-400/80"> (optimal: {currentLevel.optimalMoves})</span>
+                )}
+              </div>
+              <div className="text-green-400/70 text-xs mt-0.5">
                 {gameState.moveHistory.filter((m) => m.wasPush).length} pushes
               </div>
             </div>
