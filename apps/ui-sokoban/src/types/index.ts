@@ -24,7 +24,14 @@ export interface SokobanLevel {
   usedFallback?: boolean // True if generator fell back to simple puzzle
 }
 
-export type Difficulty = 'easy' | 'medium' | 'hard' | 'classic' | 'microban'
+export type Difficulty =
+  | 'easy'
+  | 'easy-custom'
+  | 'medium'
+  | 'hard'
+  | 'classic'
+  | 'classic-hard'
+  | 'microban'
 
 // Movement
 export type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'

@@ -13,12 +13,16 @@ import { Slider } from '@sokoban-eval-toolkit/ui-library/components/slider'
 import { Switch } from '@sokoban-eval-toolkit/ui-library/components/switch'
 import { DIFFICULTY_LABELS } from '@src/constants'
 import type { Difficulty, SokobanLevel } from '@src/types'
+import { generateEasyCustomLevel } from '@src/utils/easyCustomGenerator'
 import { generateLevel } from '@src/utils/levelGenerator'
 import {
+  getHardLevel,
+  getHardLevelCount,
   getMediumLevel,
   getMediumLevelCount,
   getMicrobanLevel,
   getMicrobanLevelCount,
+  getRandomHardLevel,
   getRandomMediumLevel,
   getRandomMicrobanLevel,
 } from '@src/utils/levelLoader'
@@ -34,17 +38,19 @@ import {
 import { useCallback, useRef, useState } from 'react'
 
 // Difficulties that use procedural generation
-const GENERATED_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard']
+const GENERATED_DIFFICULTIES: Difficulty[] = ['easy', 'easy-custom', 'medium', 'hard']
 
 // Difficulties that use curated level sets
-const CURATED_DIFFICULTIES: Difficulty[] = ['classic', 'microban']
+const CURATED_DIFFICULTIES: Difficulty[] = ['classic', 'classic-hard', 'microban']
 
 // Info text for each difficulty
 const DIFFICULTY_INFO: Record<Difficulty, string> = {
   easy: '2 boxes. Quick to solve, great for learning.',
+  'easy-custom': '1-3 boxes. Maze-based puzzles with corridor layouts.',
   medium: '3 boxes. More challenging with longer solutions.',
   hard: '4 boxes. Complex puzzles requiring careful planning.',
-  classic: 'Curated puzzles from boxoban-levels (10×10, 4 boxes).',
+  classic: 'Medium difficulty puzzles from boxoban-levels (10×10, 4 boxes).',
+  'classic-hard': 'Hard difficulty puzzles from boxoban-levels (10×10, 4 boxes).',
   microban: 'Classic beginner puzzles by David Skinner (155 levels).',
 }
 
@@ -88,13 +94,18 @@ export function LevelSelector({
       ? getMicrobanLevelCount()
       : difficulty === 'classic'
         ? getMediumLevelCount()
-        : 0
+        : difficulty === 'classic-hard'
+          ? getHardLevelCount()
+          : 0
 
   // Helper to get level based on current difficulty
   const getCuratedLevel = useCallback(
     (index: number) => {
       if (difficulty === 'microban') {
         return getMicrobanLevel(index)
+      }
+      if (difficulty === 'classic-hard') {
+        return getHardLevel(index)
       }
       return getMediumLevel(index)
     },
@@ -104,6 +115,9 @@ export function LevelSelector({
   const getRandomCuratedLevel = useCallback(() => {
     if (difficulty === 'microban') {
       return getRandomMicrobanLevel()
+    }
+    if (difficulty === 'classic-hard') {
+      return getRandomHardLevel()
     }
     return getRandomMediumLevel()
   }, [difficulty])
@@ -162,11 +176,20 @@ export function LevelSelector({
         gridSize: size,
       } = settingsRef.current
       try {
-        const level = generateLevel(diff as Exclude<Difficulty, 'classic' | 'microban'>, {
-          minSolutionLength: minSteps,
-          maxAttempts: attempts,
-          gridSize: size,
-        })
+        let level: SokobanLevel
+        if (diff === 'easy-custom') {
+          // Use custom maze-based generator
+          level = generateEasyCustomLevel()
+        } else {
+          level = generateLevel(
+            diff as Exclude<Difficulty, 'classic' | 'classic-hard' | 'microban' | 'easy-custom'>,
+            {
+              minSolutionLength: minSteps,
+              maxAttempts: attempts,
+              gridSize: size,
+            },
+          )
+        }
         onLevelLoad(level)
       } catch (err) {
         setError('Failed to generate puzzle')
@@ -223,70 +246,77 @@ export function LevelSelector({
       {/* Generated difficulty modes */}
       {isGenerated ? (
         <>
-          {/* Grid size slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Grid Size</span>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {gridSize}×{gridSize}
-              </span>
-            </div>
-            <Slider
-              value={[gridSize]}
-              onValueChange={([v]) => setGridSize(v)}
-              min={8}
-              max={30}
-              step={1}
-              disabled={disabled || isGenerating}
-              className="w-full"
-            />
-            <div className="flex justify-between text-[10px] text-muted-foreground/60">
-              <span>Small</span>
-              <span>Large</span>
-            </div>
-          </div>
+          {/* Sliders only shown for non-custom difficulties */}
+          {difficulty !== 'easy-custom' && (
+            <>
+              {/* Grid size slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Grid Size</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {gridSize}×{gridSize}
+                  </span>
+                </div>
+                <Slider
+                  value={[gridSize]}
+                  onValueChange={([v]) => setGridSize(v)}
+                  min={8}
+                  max={30}
+                  step={1}
+                  disabled={disabled || isGenerating}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground/60">
+                  <span>Small</span>
+                  <span>Large</span>
+                </div>
+              </div>
 
-          {/* Min solution steps slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Min Solution Steps</span>
-              <span className="text-xs text-muted-foreground tabular-nums">{minSolutionSteps}</span>
-            </div>
-            <Slider
-              value={[minSolutionSteps]}
-              onValueChange={([v]) => setMinSolutionSteps(v)}
-              min={3}
-              max={30}
-              step={1}
-              disabled={disabled || isGenerating}
-              className="w-full"
-            />
-            <div className="flex justify-between text-[10px] text-muted-foreground/60">
-              <span>Easy</span>
-              <span>Complex</span>
-            </div>
-          </div>
+              {/* Min solution steps slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Min Solution Steps</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {minSolutionSteps}
+                  </span>
+                </div>
+                <Slider
+                  value={[minSolutionSteps]}
+                  onValueChange={([v]) => setMinSolutionSteps(v)}
+                  min={3}
+                  max={30}
+                  step={1}
+                  disabled={disabled || isGenerating}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground/60">
+                  <span>Easy</span>
+                  <span>Complex</span>
+                </div>
+              </div>
 
-          {/* Max attempts slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Max Attempts</span>
-              <span className="text-xs text-muted-foreground tabular-nums">{maxAttempts}</span>
-            </div>
-            <Slider
-              value={[maxAttempts]}
-              onValueChange={([v]) => setMaxAttempts(v)}
-              min={100}
-              max={10000}
-              step={100}
-              disabled={disabled || isGenerating}
-              className="w-full"
-            />
-            <div className="flex justify-between text-[10px] text-muted-foreground/60">
-              <span>Faster</span>
-              <span>More Tries</span>
-            </div>
-          </div>
+              {/* Max attempts slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Max Attempts</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{maxAttempts}</span>
+                </div>
+                <Slider
+                  value={[maxAttempts]}
+                  onValueChange={([v]) => setMaxAttempts(v)}
+                  min={100}
+                  max={10000}
+                  step={100}
+                  disabled={disabled || isGenerating}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground/60">
+                  <span>Faster</span>
+                  <span>More Tries</span>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Generation stats from last puzzle */}
           {currentLevel?.generationIterations && (
@@ -403,7 +433,7 @@ export function LevelSelector({
               </>
             ) : (
               <>
-                Levels from{' '}
+                {difficulty === 'classic-hard' ? 'Hard' : 'Medium'} levels from{' '}
                 <a
                   href="https://github.com/google-deepmind/boxoban-levels"
                   target="_blank"

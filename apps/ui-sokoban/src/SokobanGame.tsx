@@ -6,6 +6,7 @@ import {
 } from '@sokoban-eval-toolkit/ui-library/components/card'
 import { MOVE_KEYS } from '@src/constants'
 import type { CellTerrain, GameState, MoveDirection, Position, SokobanLevel } from '@src/types'
+import { generateEasyCustomLevel } from '@src/utils/easyCustomGenerator'
 import {
   executeMove,
   getBoxesOnGoalsCount,
@@ -180,7 +181,10 @@ export function SokobanGame() {
   // Generate new puzzle (for generated difficulties)
   const handleRegenerate = useCallback(() => {
     const difficulty = currentLevel?.difficulty
-    if (difficulty === 'easy' || difficulty === 'medium' || difficulty === 'hard') {
+    if (difficulty === 'easy-custom') {
+      const newLevel = generateEasyCustomLevel()
+      handleLevelLoad(newLevel)
+    } else if (difficulty === 'easy' || difficulty === 'medium' || difficulty === 'hard') {
       const newLevel = generateLevel(difficulty)
       handleLevelLoad(newLevel)
     }

@@ -26,8 +26,11 @@ interface DifficultyPreset {
   maxSolverNodes: number
 }
 
-// Difficulty presets (only for generated difficulties, not classic or microban)
-const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic' | 'microban'>, DifficultyPreset> = {
+// Difficulty presets (only for generated difficulties, not classic, classic-hard, microban, or easy-custom)
+const DIFFICULTY_PRESETS: Record<
+  Exclude<Difficulty, 'classic' | 'classic-hard' | 'microban' | 'easy-custom'>,
+  DifficultyPreset
+> = {
   easy: {
     width: 8,
     height: 8,
@@ -66,7 +69,7 @@ const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'classic' | 'microban'>, Di
  * 6. Repeat until valid puzzle found or max attempts reached
  */
 export function generateLevel(
-  difficulty: Exclude<Difficulty, 'classic' | 'microban'>,
+  difficulty: Exclude<Difficulty, 'classic' | 'classic-hard' | 'microban' | 'easy-custom'>,
   options?: GeneratorOptions,
 ): SokobanLevel {
   const preset = DIFFICULTY_PRESETS[difficulty]
@@ -329,7 +332,7 @@ function createFallbackPuzzle(
   width: number,
   height: number,
   numBoxes: number,
-  difficulty: Exclude<Difficulty, 'classic'>,
+  difficulty: Exclude<Difficulty, 'classic' | 'microban' | 'easy-custom'>,
   totalAttempts: number,
 ): SokobanLevel {
   // Create a simple open puzzle

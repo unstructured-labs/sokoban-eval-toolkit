@@ -19,9 +19,11 @@ export const COLORS = {
 // Difficulty display names
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   easy: 'Easy (2 boxes)',
+  'easy-custom': 'Easy (Custom)',
   medium: 'Medium (3 boxes)',
   hard: 'Hard (4 boxes)',
-  classic: 'Classic (Boxoban)',
+  classic: 'Boxoban (Medium)',
+  'classic-hard': 'Boxoban (Hard)',
   microban: 'Microban',
 }
 

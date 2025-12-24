@@ -1,7 +1,7 @@
 // First set of medium difficulty levels from boxoban-levels
 // Source: https://github.com/google-deepmind/boxoban-levels
 
-export const MEDIUM_LEVELS_RAW = `; 0
+export const BOXOBAN_MEDIUM_LEVELS_RAW = `; 0
 ##########
 ##########
 #######  #
