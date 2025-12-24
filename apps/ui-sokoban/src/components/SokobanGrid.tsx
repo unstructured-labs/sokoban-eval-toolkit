@@ -15,6 +15,10 @@ interface SokobanGridProps {
   isEditing?: boolean
   onCellClick?: (x: number, y: number) => void
   selectedEntity?: SelectedEntity | null
+  onCellDragStart?: (x: number, y: number) => void
+  onCellDragEnter?: (x: number, y: number) => void
+  onDragEnd?: () => void
+  isDragging?: boolean
 }
 
 export function SokobanGrid({
@@ -24,6 +28,10 @@ export function SokobanGrid({
   isEditing = false,
   onCellClick,
   selectedEntity = null,
+  onCellDragStart,
+  onCellDragEnter,
+  onDragEnd,
+  isDragging = false,
 }: SokobanGridProps) {
   if (!state) {
     return (
@@ -93,10 +101,13 @@ export function SokobanGrid({
             // Can click if: editing mode on
             const canClick = isEditing
 
+            // Check if this is a plain floor/wall cell (no entities)
+            const isPlainCell = !cellIsPlayer && !cellHasBox && !cellIsGoal
+
             return (
               <div
                 key={cellKey}
-                className={`relative transition-colors duration-150 ${canClick ? 'cursor-pointer hover:brightness-110' : ''}`}
+                className={`relative transition-all duration-150 ${canClick ? 'cursor-pointer hover:brightness-150' : ''} select-none outline-none`}
                 style={{
                   backgroundColor: isWall
                     ? 'hsl(var(--sokoban-wall))'
@@ -105,6 +116,18 @@ export function SokobanGrid({
                       : 'hsl(var(--sokoban-floor))',
                 }}
                 onClick={canClick ? () => onCellClick?.(x, y) : undefined}
+                onMouseDown={
+                  canClick && isPlainCell
+                    ? (e) => {
+                        e.preventDefault()
+                        onCellDragStart?.(x, y)
+                      }
+                    : undefined
+                }
+                onMouseEnter={
+                  canClick && isDragging && isPlainCell ? () => onCellDragEnter?.(x, y) : undefined
+                }
+                onMouseUp={canClick ? () => onDragEnd?.() : undefined}
                 onKeyDown={
                   canClick
                     ? (e) => {

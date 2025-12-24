@@ -196,8 +196,12 @@ function isCornerDeadlock(boxPos: Position, level: SokobanLevel): boolean {
 
 /**
  * Check if a box is in a line deadlock.
- * A line deadlock occurs when a box is against a wall and there's
- * no goal anywhere along that wall line.
+ * A TRUE line deadlock occurs when a box is against the BORDER wall
+ * (not just any wall) and there's no goal along that border edge.
+ *
+ * The key insight: just having a wall adjacent doesn't mean the box is stuck.
+ * The box can be pushed AWAY from the wall. A line deadlock only occurs
+ * when the box is on the very edge of the playable area.
  */
 function isLineDeadlock(boxPos: Position, level: SokobanLevel): boolean {
   // If box is on a goal, it's not a deadlock
@@ -205,26 +209,27 @@ function isLineDeadlock(boxPos: Position, level: SokobanLevel): boolean {
     return false
   }
 
-  // Check if against horizontal wall (above or below)
-  const wallAbove = !isValidCell({ x: boxPos.x, y: boxPos.y - 1 }, level)
-  const wallBelow = !isValidCell({ x: boxPos.x, y: boxPos.y + 1 }, level)
-
-  if (wallAbove || wallBelow) {
-    // Scan the entire row for any goal
-    const row = level.terrain[boxPos.y]
-    if (row) {
-      const hasGoalInRow = row.some((cell) => cell === 'goal')
-      if (!hasGoalInRow) return true
-    }
+  // Check if box is on the TOP edge (row 1, since row 0 is border wall)
+  if (boxPos.y === 1) {
+    const hasGoalInRow = level.terrain[1]?.some((cell) => cell === 'goal') ?? false
+    if (!hasGoalInRow) return true
   }
 
-  // Check if against vertical wall (left or right)
-  const wallLeft = !isValidCell({ x: boxPos.x - 1, y: boxPos.y }, level)
-  const wallRight = !isValidCell({ x: boxPos.x + 1, y: boxPos.y }, level)
+  // Check if box is on the BOTTOM edge
+  if (boxPos.y === level.height - 2) {
+    const hasGoalInRow = level.terrain[level.height - 2]?.some((cell) => cell === 'goal') ?? false
+    if (!hasGoalInRow) return true
+  }
 
-  if (wallLeft || wallRight) {
-    // Scan the entire column for any goal
-    const hasGoalInCol = level.terrain.some((row) => row[boxPos.x] === 'goal')
+  // Check if box is on the LEFT edge (column 1, since column 0 is border wall)
+  if (boxPos.x === 1) {
+    const hasGoalInCol = level.terrain.some((row) => row[1] === 'goal')
+    if (!hasGoalInCol) return true
+  }
+
+  // Check if box is on the RIGHT edge
+  if (boxPos.x === level.width - 2) {
+    const hasGoalInCol = level.terrain.some((row) => row[level.width - 2] === 'goal')
     if (!hasGoalInCol) return true
   }
 

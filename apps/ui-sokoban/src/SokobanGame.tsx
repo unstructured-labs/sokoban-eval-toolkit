@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from '@sokoban-eval-toolkit/ui-library/components/card'
 import { MOVE_KEYS } from '@src/constants'
-import type { GameState, MoveDirection, SokobanLevel } from '@src/types'
+import type { CellTerrain, GameState, MoveDirection, Position, SokobanLevel } from '@src/types'
 import {
   executeMove,
   getBoxesOnGoalsCount,
@@ -13,11 +13,21 @@ import {
   resetGame,
   undoMove,
 } from '@src/utils/gameEngine'
+import {
+  type SavedLayout,
+  deleteLayout,
+  getSavedLayoutsList,
+  layoutExists,
+  loadLayout,
+  saveLayout,
+} from '@src/utils/layoutStorage'
 import { generateLevel } from '@src/utils/levelGenerator'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { AIPanel } from './components/AIPanel'
 import { ControlPanel } from './components/ControlPanel'
 import { LevelSelector } from './components/LevelSelector'
+import { SavedLayoutsOverlay } from './components/SavedLayoutsOverlay'
 import { SokobanGrid } from './components/SokobanGrid'
 
 export function SokobanGame() {
@@ -33,9 +43,19 @@ export function SokobanGame() {
     x: number
     y: number
   } | null>(null)
+  const [isDraggingWalls, setIsDraggingWalls] = useState(false)
   const solutionMovesRef = useRef<MoveDirection[]>([])
   const solutionIndexRef = useRef(0)
   const solutionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Saved layouts state
+  const [savedLayouts, setSavedLayouts] = useState<SavedLayout[]>([])
+  const [layoutName, setLayoutName] = useState('')
+
+  // Load saved layouts on mount
+  useEffect(() => {
+    setSavedLayouts(getSavedLayoutsList())
+  }, [])
 
   // Handle level load
   const handleLevelLoad = useCallback((level: SokobanLevel) => {
@@ -166,6 +186,168 @@ export function SokobanGame() {
     }
   }, [currentLevel, handleLevelLoad])
 
+  // Save current layout
+  const handleSaveLayout = useCallback(() => {
+    if (!gameState || !layoutName.trim()) return
+
+    // Check for duplicate
+    if (layoutExists(layoutName.trim())) {
+      if (!confirm(`A layout named "${layoutName.trim()}" already exists. Overwrite?`)) {
+        return
+      }
+    }
+
+    // Extract goals from terrain
+    const goals: Position[] = []
+    gameState.level.terrain.forEach((row, y) => {
+      row.forEach((cell, x) => {
+        if (cell === 'goal') {
+          goals.push({ x, y })
+        }
+      })
+    })
+
+    const layout: SavedLayout = {
+      id: uuidv4(),
+      name: layoutName.trim(),
+      savedAt: Date.now(),
+      difficulty: gameState.level.difficulty,
+      width: gameState.level.width,
+      height: gameState.level.height,
+      terrain: gameState.level.terrain,
+      playerStart: gameState.playerPos,
+      boxStarts: gameState.boxes,
+      goals,
+    }
+
+    saveLayout(layout)
+    setSavedLayouts(getSavedLayoutsList())
+    setLayoutName('')
+  }, [gameState, layoutName])
+
+  // Load a saved layout
+  const handleLoadLayout = useCallback(
+    (name: string) => {
+      const layout = loadLayout(name)
+      if (!layout) return
+
+      // Create a SokobanLevel from the saved layout
+      const level: SokobanLevel = {
+        id: `saved-${layout.id}`,
+        width: layout.width,
+        height: layout.height,
+        terrain: layout.terrain as CellTerrain[][],
+        playerStart: layout.playerStart,
+        boxStarts: layout.boxStarts,
+        goals: layout.goals,
+        difficulty: layout.difficulty,
+        fileSource: 'saved',
+        puzzleNumber: 0,
+      }
+
+      handleLevelLoad(level)
+      setLayoutName(layout.name)
+    },
+    [handleLevelLoad],
+  )
+
+  // Delete a saved layout
+  const handleDeleteLayout = useCallback((name: string) => {
+    if (!confirm(`Delete layout "${name}"?`)) return
+    deleteLayout(name)
+    setSavedLayouts(getSavedLayoutsList())
+  }, [])
+
+  // Flip a cell's terrain state (wall <-> floor)
+  const flipCell = useCallback(
+    (x: number, y: number) => {
+      if (!gameState) return
+
+      // Don't allow editing border walls
+      if (
+        x === 0 ||
+        x === gameState.level.width - 1 ||
+        y === 0 ||
+        y === gameState.level.height - 1
+      ) {
+        return
+      }
+
+      const currentTerrain = gameState.level.terrain[y]?.[x]
+      if (currentTerrain === undefined || currentTerrain === 'goal') return
+
+      const newMode = currentTerrain === 'wall' ? 'floor' : 'wall'
+
+      const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
+        rowY === y ? row.map((cell, cellX) => (cellX === x ? newMode : cell)) : row,
+      )
+
+      const newLevel = {
+        ...gameState.level,
+        terrain: newTerrainGrid,
+      }
+
+      setGameState({
+        ...gameState,
+        level: newLevel,
+      })
+      setCurrentLevel(newLevel)
+    },
+    [gameState],
+  )
+
+  // Start drag painting
+  const handleCellDragStart = useCallback(
+    (x: number, y: number) => {
+      if (!gameState || !isEditing) return
+
+      // If an entity is selected, don't start wall dragging - let click handler move the entity
+      if (selectedEntity) return
+
+      // Don't allow editing border walls
+      if (
+        x === 0 ||
+        x === gameState.level.width - 1 ||
+        y === 0 ||
+        y === gameState.level.height - 1
+      ) {
+        return
+      }
+
+      setIsDraggingWalls(true)
+
+      // Flip the starting cell
+      flipCell(x, y)
+    },
+    [gameState, isEditing, flipCell, selectedEntity],
+  )
+
+  // Continue drag painting - flip each cell as we enter it
+  const handleCellDragEnter = useCallback(
+    (x: number, y: number) => {
+      if (!isDraggingWalls) return
+      flipCell(x, y)
+    },
+    [isDraggingWalls, flipCell],
+  )
+
+  // End drag painting
+  const handleDragEnd = useCallback(() => {
+    setIsDraggingWalls(false)
+  }, [])
+
+  // Global mouse up listener to end drag even if mouse leaves the grid
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDraggingWalls) {
+        handleDragEnd()
+      }
+    }
+
+    window.addEventListener('mouseup', handleGlobalMouseUp)
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
+  }, [isDraggingWalls, handleDragEnd])
+
   // Handle cell click for editing mode
   const handleCellClick = useCallback(
     (x: number, y: number) => {
@@ -234,19 +416,31 @@ export function SokobanGame() {
           return
         }
 
-        // Move the selected entity
+        // Move the selected entity and update level initial positions
         if (selectedEntity.type === 'player') {
+          const newLevel = {
+            ...gameState.level,
+            playerStart: { x, y },
+          }
           setGameState({
             ...gameState,
             playerPos: { x, y },
+            level: newLevel,
           })
+          setCurrentLevel(newLevel)
         } else if (selectedEntity.type === 'box' && selectedEntity.index !== undefined) {
           const newBoxes = [...gameState.boxes]
           newBoxes[selectedEntity.index] = { x, y }
+          const newLevel = {
+            ...gameState.level,
+            boxStarts: newBoxes,
+          }
           setGameState({
             ...gameState,
             boxes: newBoxes,
+            level: newLevel,
           })
+          setCurrentLevel(newLevel)
         } else if (selectedEntity.type === 'goal') {
           // Move goal: remove from old position, add to new position
           const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
@@ -278,38 +472,8 @@ export function SokobanGame() {
         return
       }
 
-      // No selection - toggle wall/floor (original behavior)
-      // Don't allow editing border walls
-      if (
-        x === 0 ||
-        x === gameState.level.width - 1 ||
-        y === 0 ||
-        y === gameState.level.height - 1
-      ) {
-        return
-      }
-
-      // Toggle between wall and floor
-      const newTerrain = currentTerrain === 'wall' ? 'floor' : 'wall'
-
-      // Create new terrain array with the change
-      const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
-        rowY === y ? row.map((cell, cellX) => (cellX === x ? newTerrain : cell)) : row,
-      )
-
-      // Update the level and game state
-      const newLevel = {
-        ...gameState.level,
-        terrain: newTerrainGrid,
-      }
-
-      setGameState({
-        ...gameState,
-        level: newLevel,
-      })
-
-      // Also update currentLevel so resets use the edited version
-      setCurrentLevel(newLevel)
+      // Wall toggling is handled by drag handler (handleCellDragStart)
+      // so we don't need to handle it here
     },
     [gameState, isEditing, selectedEntity],
   )
@@ -394,11 +558,34 @@ export function SokobanGame() {
       </div>
 
       {/* Center - Game Area */}
-      <div className="flex-1 flex flex-col items-center justify-between px-5 py-6 min-w-0">
-        {/* Top spacer */}
-        <div className="flex-1" />
+      <div className="flex-1 flex flex-col items-center px-5 py-6 min-w-0">
+        {/* Save/Load layouts UI - at top */}
+        <div className="flex-1 flex flex-col justify-start">
+          <div className="flex items-center gap-2">
+            <SavedLayoutsOverlay
+              layouts={savedLayouts}
+              onLoad={handleLoadLayout}
+              onDelete={handleDeleteLayout}
+            />
+            <input
+              type="text"
+              placeholder="Layout name..."
+              value={layoutName}
+              onChange={(e) => setLayoutName(e.target.value)}
+              className="h-8 px-2 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary w-32"
+            />
+            <button
+              type="button"
+              onClick={handleSaveLayout}
+              disabled={!layoutName.trim() || !gameState}
+              className="h-8 px-2 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-500 rounded border border-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none whitespace-nowrap"
+            >
+              Save
+            </button>
+          </div>
+        </div>
 
-        {/* Main content */}
+        {/* Main content - centered */}
         <div className="flex flex-col items-center">
           {/* Title */}
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-2">
@@ -423,6 +610,10 @@ export function SokobanGame() {
             isEditing={isEditing}
             onCellClick={handleCellClick}
             selectedEntity={selectedEntity}
+            onCellDragStart={handleCellDragStart}
+            onCellDragEnter={handleCellDragEnter}
+            onDragEnd={handleDragEnd}
+            isDragging={isDraggingWalls}
           />
 
           {/* Legend */}

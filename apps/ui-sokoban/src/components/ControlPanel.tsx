@@ -133,7 +133,7 @@ export function ControlPanel({
               )}
             </>
           ) : solverResult.hitLimit ? (
-            <span className="text-blue-500">Solver limit hit (puzzle may be solvable)</span>
+            <span className="text-amber-500">Solver limit hit (puzzle may be solvable)</span>
           ) : (
             <span className="text-amber-500">No solution found</span>
           )}

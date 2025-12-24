@@ -76,6 +76,28 @@ export function LevelSelector({
     onLevelLoad(level)
   }, [onLevelLoad])
 
+  const handlePrevClassic = useCallback(() => {
+    if (puzzleNumber <= 1) return
+    setError(null)
+    const newNumber = puzzleNumber - 1
+    setPuzzleNumber(newNumber)
+    const level = getMediumLevel(newNumber - 1)
+    if (level) {
+      onLevelLoad(level)
+    }
+  }, [puzzleNumber, onLevelLoad])
+
+  const handleNextClassic = useCallback(() => {
+    if (puzzleNumber >= classicLevelCount) return
+    setError(null)
+    const newNumber = puzzleNumber + 1
+    setPuzzleNumber(newNumber)
+    const level = getMediumLevel(newNumber - 1)
+    if (level) {
+      onLevelLoad(level)
+    }
+  }, [puzzleNumber, classicLevelCount, onLevelLoad])
+
   const handleGenerate = useCallback(() => {
     if (!isGenerated) return
     setError(null)
@@ -285,7 +307,7 @@ export function LevelSelector({
                 className="h-8 text-xs flex-1"
               />
               <Button
-                onClick={() => setPuzzleNumber((n) => Math.max(1, n - 1))}
+                onClick={handlePrevClassic}
                 disabled={disabled || puzzleNumber <= 1}
                 size="sm"
                 variant="secondary"
@@ -295,7 +317,7 @@ export function LevelSelector({
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <Button
-                onClick={() => setPuzzleNumber((n) => Math.min(classicLevelCount, n + 1))}
+                onClick={handleNextClassic}
                 disabled={disabled || puzzleNumber >= classicLevelCount}
                 size="sm"
                 variant="secondary"
