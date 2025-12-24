@@ -3,7 +3,7 @@ import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator
 import type { GameState, MoveDirection } from '@src/types'
 import { getBoxesOnGoalsCount, isSimpleDeadlock } from '@src/utils/gameEngine'
 import { solvePuzzle } from '@src/utils/sokobanSolver'
-import { AlertTriangle, Play, RotateCcw, Undo2 } from 'lucide-react'
+import { AlertTriangle, RotateCcw, Undo2 } from 'lucide-react'
 import { useMemo } from 'react'
 
 interface ControlPanelProps {
@@ -106,7 +106,7 @@ export function ControlPanel({
           {solverResult !== null ? (
             <>
               <span>
-                Shortest:{' '}
+                Shortest Solution:{' '}
                 <span className="font-semibold text-foreground">{solverResult.moveCount}</span>{' '}
                 moves
               </span>
@@ -119,11 +119,11 @@ export function ControlPanel({
                   }}
                   disabled={disabled || isPlayingSolution}
                   size="sm"
-                  variant="ghost"
-                  className="h-5 px-1.5 text-[10px]"
+                  variant="secondary"
+                  className="h-5 px-1.5 text-[8px]"
                   title="Run solution"
                 >
-                  <Play className="w-3 h-3" />
+                  Run
                 </Button>
               )}
             </>

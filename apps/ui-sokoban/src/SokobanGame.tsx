@@ -26,6 +26,8 @@ export function SokobanGame() {
   const [aiInferenceTimeMs, setAiInferenceTimeMs] = useState<number | null>(null)
   const initialLoadDone = useRef(false)
   const [isPlayingSolution, setIsPlayingSolution] = useState(false)
+  const solutionMovesRef = useRef<MoveDirection[]>([])
+  const solutionIndexRef = useRef(0)
   const solutionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Handle level load
@@ -74,7 +76,7 @@ export function SokobanGame() {
     [gameState],
   )
 
-  // Handle running solution (plays moves with animation)
+  // Handle running solution - just stores the moves and starts playback
   const handleRunSolution = useCallback(
     (moves: MoveDirection[]) => {
       if (!gameState || moves.length === 0) return
@@ -82,61 +84,59 @@ export function SokobanGame() {
       // Clear any existing solution playback
       if (solutionTimeoutRef.current) {
         clearTimeout(solutionTimeoutRef.current)
+        solutionTimeoutRef.current = null
       }
 
+      // Store moves and reset index
+      solutionMovesRef.current = [...moves]
+      solutionIndexRef.current = 0
       setIsPlayingSolution(true)
-
-      // Use a recursive approach that passes the current index
-      const playMove = (index: number) => {
-        if (index >= moves.length) {
-          setIsPlayingSolution(false)
-          return
-        }
-
-        const direction = moves[index]
-        if (!direction) {
-          setIsPlayingSolution(false)
-          return
-        }
-
-        setGameState((currentState) => {
-          if (!currentState || currentState.isWon) {
-            setIsPlayingSolution(false)
-            return currentState
-          }
-
-          const newState = executeMove(currentState, direction, 'ai')
-
-          if (newState) {
-            // Schedule next move outside the setState callback
-            const nextIndex = index + 1
-            if (nextIndex < moves.length && !newState.isWon) {
-              solutionTimeoutRef.current = setTimeout(() => playMove(nextIndex), 300)
-            } else {
-              setIsPlayingSolution(false)
-            }
-            return newState
-          }
-
-          setIsPlayingSolution(false)
-          return currentState
-        })
-      }
-
-      // Start playing from index 0
-      playMove(0)
     },
     [gameState],
   )
 
-  // Cleanup solution timeout on unmount
+  // Effect to process solution moves one at a time
   useEffect(() => {
+    if (!isPlayingSolution) return
+    if (!gameState) {
+      setIsPlayingSolution(false)
+      return
+    }
+
+    const moves = solutionMovesRef.current
+    const index = solutionIndexRef.current
+
+    // Check if we're done
+    if (index >= moves.length || gameState.isWon) {
+      setIsPlayingSolution(false)
+      return
+    }
+
+    const direction = moves[index]
+    if (!direction) {
+      setIsPlayingSolution(false)
+      return
+    }
+
+    // Schedule the next move
+    solutionTimeoutRef.current = setTimeout(() => {
+      const newState = executeMove(gameState, direction, 'ai')
+      if (newState) {
+        solutionIndexRef.current = index + 1
+        setGameState(newState)
+      } else {
+        // Move failed, stop playback
+        setIsPlayingSolution(false)
+      }
+    }, 300)
+
     return () => {
       if (solutionTimeoutRef.current) {
         clearTimeout(solutionTimeoutRef.current)
+        solutionTimeoutRef.current = null
       }
     }
-  }, [])
+  }, [isPlayingSolution, gameState])
 
   // Handle undo
   const handleUndo = useCallback(() => {

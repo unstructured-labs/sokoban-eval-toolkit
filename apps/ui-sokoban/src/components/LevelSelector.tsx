@@ -136,16 +136,6 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
           <div className="space-y-1.5">
             <span className="text-xs text-muted-foreground">Puzzle # (1-{classicLevelCount})</span>
             <div className="flex gap-1">
-              <Button
-                onClick={() => setPuzzleNumber((n) => Math.max(1, n - 1))}
-                disabled={disabled || puzzleNumber <= 1}
-                size="sm"
-                variant="ghost"
-                className="h-8 px-2"
-                title="Previous puzzle"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
               <Input
                 type="number"
                 min={1}
@@ -160,10 +150,20 @@ export function LevelSelector({ onLevelLoad, disabled = false }: LevelSelectorPr
                 className="h-8 text-xs flex-1"
               />
               <Button
+                onClick={() => setPuzzleNumber((n) => Math.max(1, n - 1))}
+                disabled={disabled || puzzleNumber <= 1}
+                size="sm"
+                variant="secondary"
+                className="h-8 px-2"
+                title="Previous puzzle"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
                 onClick={() => setPuzzleNumber((n) => Math.min(classicLevelCount, n + 1))}
                 disabled={disabled || puzzleNumber >= classicLevelCount}
                 size="sm"
-                variant="ghost"
+                variant="secondary"
                 className="h-8 px-2"
                 title="Next puzzle"
               >
