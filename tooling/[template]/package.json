@@ -1,0 +1,13 @@
+{
+  "name": "@sokoban-eval-toolkit/tooling-template",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "tsc": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.1"
+  }
+}

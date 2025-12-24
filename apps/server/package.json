@@ -1,0 +1,26 @@
+{
+  "name": "@sokoban-eval-toolkit/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun dist/index.js",
+    "tsc": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun src/db/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@sokoban-eval-toolkit/db": "workspace:*",
+    "@sokoban-eval-toolkit/trpc-router": "workspace:*",
+    "@hono/trpc-server": "^0.3.2",
+    "hono": "^4.6.18"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.1",
+    "drizzle-kit": "^0.30.1"
+  }
+}

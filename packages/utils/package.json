@@ -1,0 +1,22 @@
+{
+  "name": "@sokoban-eval-toolkit/utils",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./openrouter-models": "./src/openrouter-models.ts",
+    "./openrouter-types": "./src/openrouter-types.ts",
+    "./openrouter-client": "./src/openrouter-client.ts"
+  },
+  "scripts": {
+    "tsc": "tsc -b"
+  },
+  "dependencies": {
+    "openai": "^4.93.0"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.3",
+    "typescript": "^5.6.3"
+  }
+}

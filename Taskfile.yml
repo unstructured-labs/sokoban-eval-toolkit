@@ -1,0 +1,46 @@
+version: '3'
+tasks:
+  dev:
+    desc: Start server + web
+    cmds:
+      - bun dev
+
+  dev:server:
+    desc: Start the API server
+    cmds:
+      - bun dev:server
+
+  dev:web:
+    desc: Start the web app
+    cmds:
+      - bun dev:web
+
+  build:
+    desc: Build all packages/apps
+    cmds:
+      - bun build
+
+  lint:
+    desc: Run Biome checks
+    cmds:
+      - bun lint
+
+  format:
+    desc: Format with Biome
+    cmds:
+      - bun format
+
+  tsc:
+    desc: Type-check with project references
+    cmds:
+      - bun tsc
+
+  env:setup:
+    desc: Copy root .env into apps/, packages/, and tooling/ subfolders
+    cmds:
+      - bun env:setup
+
+  bootstrap:
+    desc: Bootstrap a new repo from this starter
+    cmds:
+      - bun scripts/bootstrap.ts

@@ -1,0 +1,85 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: Start All",
+      "type": "shell",
+      "command": "bun dev",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Dev: Server Only",
+      "type": "shell",
+      "command": "bun dev:server",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Dev: Frontend Only",
+      "type": "shell",
+      "command": "bun dev:web",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "DB: Generate Migration",
+      "type": "shell",
+      "command": "bun db:generate",
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: Run Migration",
+      "type": "shell",
+      "command": "bun db:migrate",
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: Studio",
+      "type": "shell",
+      "command": "bun db:studio",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Lint: Check",
+      "type": "shell",
+      "command": "bun lint",
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint: Fix",
+      "type": "shell",
+      "command": "bun lint:fix",
+      "problemMatcher": []
+    },
+    {
+      "label": "TypeScript Check",
+      "type": "shell",
+      "command": "bun tsc",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Build All",
+      "type": "shell",
+      "command": "bun build",
+      "problemMatcher": []
+    }
+  ]
+}
