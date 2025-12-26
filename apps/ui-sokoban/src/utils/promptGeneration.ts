@@ -13,6 +13,34 @@ const CIPHER_MAP = {
 } as const
 
 /**
+ * Extract wall positions from the game state terrain.
+ */
+function getWallPositions(state: GameState): string {
+  const walls: string[] = []
+  for (let y = 0; y < state.level.height; y++) {
+    for (let x = 0; x < state.level.width; x++) {
+      if (state.level.terrain[y]?.[x] === 'wall') {
+        walls.push(`(${x},${y})`)
+      }
+    }
+  }
+  return walls.join(', ')
+}
+
+/**
+ * Generate coordinate locations format representation.
+ */
+function generateCoordinateLocationsFormat(state: GameState): string {
+  const parts: string[] = []
+  parts.push(`Board Size: ${state.level.width}x${state.level.height}`)
+  parts.push(`Wall Locations: ${getWallPositions(state)}`)
+  parts.push(`Player Location: (${state.playerPos.x},${state.playerPos.y})`)
+  parts.push(`Box Locations: ${state.boxes.map((b) => `(${b.x},${b.y})`).join(', ')}`)
+  parts.push(`Goal Locations: ${state.level.goals.map((g) => `(${g.x},${g.y})`).join(', ')}`)
+  return parts.join('\n')
+}
+
+/**
  * Convert standard Sokoban ASCII to cipher symbols.
  */
 function applyCipherSymbols(ascii: string): string {
@@ -89,6 +117,13 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
     parts.push(`- ${symbols.boxOnGoal} = Box on Goal`)
     parts.push(`- ${symbols.playerOnGoal} = Player on Goal`)
     parts.push(`- ${symbols.floor} = Floor`)
+    parts.push('')
+  }
+
+  // Coordinate locations format
+  if (options.coordinateLocations) {
+    parts.push('## Current State (Coordinate Locations)')
+    parts.push(generateCoordinateLocationsFormat(state))
     parts.push('')
   }
 
@@ -217,4 +252,5 @@ export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {
   includeNotationGuide: true,
   executionMode: 'fullSolution',
   cipherSymbols: false,
+  coordinateLocations: false,
 }

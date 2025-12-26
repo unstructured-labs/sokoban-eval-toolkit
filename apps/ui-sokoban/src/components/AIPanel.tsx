@@ -668,6 +668,22 @@ export function AIPanel({
                 Cipher Symbols
               </Label>
             </div>
+            {/* Coordinate Locations option */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="coordinateLocations"
+                checked={promptOptions.coordinateLocations}
+                onCheckedChange={() => togglePromptOption('coordinateLocations')}
+                disabled={isRunning || plannedMoves.length > 0}
+                className="h-3.5 w-3.5"
+              />
+              <Label
+                htmlFor="coordinateLocations"
+                className={`text-xs ${isRunning || plannedMoves.length > 0 ? 'text-muted-foreground cursor-default' : 'cursor-pointer'}`}
+              >
+                Coordinate Locations
+              </Label>
+            </div>
             {/* Coordinates and Notation Guide are always included */}
             <div className="text-[10px] text-muted-foreground ml-5">
               Coordinates + Notation Guide always included
