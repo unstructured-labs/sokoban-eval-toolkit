@@ -161,9 +161,9 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
     description: 'Qwen3 8B model',
   },
   {
-    id: 'z-ai/glm-4.6',
-    name: 'GLM 4.6',
-    description: 'Z-AI GLM 4.6 model',
+    id: 'z-ai/glm-4.7',
+    name: 'GLM 4.7',
+    description: 'Z-AI GLM 4.7 model',
   },
   {
     id: 'deepseek/deepseek-v3.2',
