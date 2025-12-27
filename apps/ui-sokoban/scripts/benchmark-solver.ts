@@ -47,10 +47,10 @@ interface SolutionCache {
 }
 
 // Current solver version - bump this to invalidate cache when solver changes
-const SOLVER_VERSION = '2.1.0-100k-nodes'
+const SOLVER_VERSION = '3.0.0-push-astar-150k'
 
 // Maximum nodes to explore before giving up
-const MAX_NODES = 100000
+const MAX_NODES = 150000
 
 /**
  * Convert a level to a unique hash for cache key.

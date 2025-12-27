@@ -9,18 +9,434 @@ export interface SolverResult {
   hitLimit: boolean
 }
 
-interface SolverState {
+/** A* Search Node - represents a state after a box push */
+interface SearchNode {
   playerPos: Position
   boxes: Position[]
-  moves: MoveDirection[]
+  /** g-score: number of moves (walks + pushes) taken so far */
+  cost: number
+  /** h-score: estimated moves to finish */
+  heuristic: number
+  /** f-score: cost + heuristic */
+  priority: number
+  /** Unique state hash */
+  id: string
+  /** For path reconstruction */
+  parent: SearchNode | null
+  /** The moves (walk + push) that got us here */
+  actionFromParent: MoveDirection[] | null
 }
 
-const DIRECTIONS: { direction: MoveDirection; dx: number; dy: number }[] = [
-  { direction: 'UP', dx: 0, dy: -1 },
-  { direction: 'DOWN', dx: 0, dy: 1 },
-  { direction: 'LEFT', dx: -1, dy: 0 },
-  { direction: 'RIGHT', dx: 1, dy: 0 },
+/**
+ * Min-Heap Priority Queue for A* search
+ */
+class PriorityQueue {
+  private items: SearchNode[] = []
+
+  push(item: SearchNode): void {
+    this.items.push(item)
+    this.bubbleUp(this.items.length - 1)
+  }
+
+  pop(): SearchNode | undefined {
+    if (this.items.length === 0) return undefined
+    const top = this.items[0]
+    const bottom = this.items.pop()
+    if (this.items.length > 0 && bottom) {
+      this.items[0] = bottom
+      this.sinkDown(0)
+    }
+    return top
+  }
+
+  size(): number {
+    return this.items.length
+  }
+
+  private bubbleUp(startIndex: number): void {
+    let index = startIndex
+    const item = this.items[index]
+    while (index > 0) {
+      const parentIdx = Math.floor((index - 1) / 2)
+      const parent = this.items[parentIdx]
+      if (item.priority >= parent.priority) break
+      this.items[index] = parent
+      this.items[parentIdx] = item
+      index = parentIdx
+    }
+  }
+
+  private sinkDown(index: number): void {
+    const length = this.items.length
+    const element = this.items[index]
+    let currentIndex = index
+    while (true) {
+      const leftChildIdx = 2 * currentIndex + 1
+      const rightChildIdx = 2 * currentIndex + 2
+      let swap: number | null = null
+
+      if (leftChildIdx < length) {
+        if (this.items[leftChildIdx].priority < element.priority) {
+          swap = leftChildIdx
+        }
+      }
+      if (rightChildIdx < length) {
+        if (
+          (swap === null && this.items[rightChildIdx].priority < element.priority) ||
+          (swap !== null && this.items[rightChildIdx].priority < this.items[leftChildIdx].priority)
+        ) {
+          swap = rightChildIdx
+        }
+      }
+      if (swap === null) break
+      this.items[currentIndex] = this.items[swap]
+      this.items[swap] = element
+      currentIndex = swap
+    }
+  }
+}
+
+const PUSH_DIRECTIONS = [
+  { dir: 'UP' as MoveDirection, dx: 0, dy: -1 },
+  { dir: 'DOWN' as MoveDirection, dx: 0, dy: 1 },
+  { dir: 'LEFT' as MoveDirection, dx: -1, dy: 0 },
+  { dir: 'RIGHT' as MoveDirection, dx: 1, dy: 0 },
 ]
+
+/**
+ * Solve a Sokoban puzzle using Push-Level A* Search.
+ *
+ * Unlike Move-Level BFS which treats every player step as a state change,
+ * this solver only creates new states when a box is pushed. Walking between
+ * pushes is calculated but doesn't expand the search space.
+ *
+ * Uses Manhattan distance heuristic to prioritize pushing boxes toward goals.
+ *
+ * @param level - The Sokoban level to solve
+ * @param maxNodes - Maximum nodes to explore before giving up (default: 150000)
+ * @returns SolverResult with solution if found
+ */
+export function solvePuzzle(level: SokobanLevel, maxNodes = 150000): SolverResult {
+  const deadSquares = computeDeadSquares(level)
+  const goals = findGoals(level)
+
+  // Initial state
+  const initialBoxes = level.boxStarts.map((b) => ({ ...b }))
+
+  // Check if already solved
+  if (isGoalState(initialBoxes, goals)) {
+    return {
+      solvable: true,
+      solution: [],
+      moveCount: 0,
+      nodesExplored: 1,
+      hitLimit: false,
+    }
+  }
+
+  // Check immediate failures - boxes on dead squares
+  for (const box of initialBoxes) {
+    if (deadSquares.has(`${box.x},${box.y}`)) {
+      return failResult(1)
+    }
+  }
+
+  // Get initial reachability for state normalization
+  const initialReachable = getReachableArea(level.playerStart, initialBoxes, level)
+  const initialHash = generateStateHash(initialBoxes, initialReachable.canonicalPos)
+
+  const startNode: SearchNode = {
+    playerPos: level.playerStart,
+    boxes: initialBoxes,
+    cost: 0,
+    heuristic: calcHeuristic(initialBoxes, goals),
+    priority: 0,
+    id: initialHash,
+    parent: null,
+    actionFromParent: null,
+  }
+  startNode.priority = startNode.cost + startNode.heuristic
+
+  const queue = new PriorityQueue()
+  queue.push(startNode)
+
+  const visited = new Set<string>()
+  visited.add(initialHash)
+
+  let nodesExplored = 0
+
+  while (queue.size() > 0 && nodesExplored < maxNodes) {
+    const current = queue.pop()
+    if (!current) break
+    nodesExplored++
+
+    // Check if solved (heuristic of 0 means all boxes on goals)
+    if (current.heuristic === 0) {
+      return {
+        solvable: true,
+        solution: reconstructPath(current),
+        moveCount: reconstructPath(current).length,
+        nodesExplored,
+        hitLimit: false,
+      }
+    }
+
+    // Get reachable area from current position
+    const reachable = getReachableArea(current.playerPos, current.boxes, level)
+
+    // Find all possible pushes from this reachable area
+    for (let i = 0; i < current.boxes.length; i++) {
+      const box = current.boxes[i]
+
+      // Try pushing this box in all 4 directions
+      for (const { dir, dx, dy } of PUSH_DIRECTIONS) {
+        // Position player must be at to push box in this direction
+        const pushFrom = { x: box.x - dx, y: box.y - dy }
+
+        // Can the player reach the push position?
+        if (!reachable.map.has(`${pushFrom.x},${pushFrom.y}`)) continue
+
+        // Where would the box end up?
+        const targetPos = { x: box.x + dx, y: box.y + dy }
+
+        // Is the target position valid (floor/goal and empty)?
+        if (!isValidMoveTarget(targetPos, level, current.boxes)) continue
+
+        // Check static deadlocks (dead squares)
+        if (deadSquares.has(`${targetPos.x},${targetPos.y}`)) continue
+
+        // Create new box state
+        const newBoxes = [...current.boxes]
+        newBoxes[i] = targetPos
+
+        // Check dynamic deadlocks (freeze patterns)
+        if (isFreezeDeadlock(newBoxes, level)) continue
+
+        // Calculate walking path to push position
+        const walkPath = findPathBFS(current.playerPos, pushFrom, level, current.boxes)
+        if (!walkPath) continue
+
+        // Full move sequence: walk to box + push
+        const moveSequence = [...walkPath, dir]
+
+        // After push, player is at box's old position
+        const playerAfterPush = { x: box.x, y: box.y }
+        const newReachable = getReachableArea(playerAfterPush, newBoxes, level)
+        const newHash = generateStateHash(newBoxes, newReachable.canonicalPos)
+
+        if (visited.has(newHash)) continue
+        visited.add(newHash)
+
+        const h = calcHeuristic(newBoxes, goals)
+        const g = current.cost + moveSequence.length
+
+        queue.push({
+          playerPos: playerAfterPush,
+          boxes: newBoxes,
+          cost: g,
+          heuristic: h,
+          priority: g + h,
+          id: newHash,
+          parent: current,
+          actionFromParent: moveSequence,
+        })
+      }
+    }
+  }
+
+  return failResult(nodesExplored, nodesExplored >= maxNodes)
+}
+
+/**
+ * Reconstruct the full move path from start to goal
+ */
+function reconstructPath(node: SearchNode): MoveDirection[] {
+  const path: MoveDirection[] = []
+  let curr: SearchNode | null = node
+  while (curr?.parent) {
+    if (curr.actionFromParent) {
+      path.unshift(...curr.actionFromParent)
+    }
+    curr = curr.parent
+  }
+  return path
+}
+
+function failResult(nodes: number, hitLimit = false): SolverResult {
+  return {
+    solvable: false,
+    solution: null,
+    moveCount: 0,
+    nodesExplored: nodes,
+    hitLimit,
+  }
+}
+
+/**
+ * Find all squares the player can reach without pushing any boxes.
+ * Returns a Set of position keys and a canonical position (top-left most) for state hashing.
+ */
+function getReachableArea(
+  start: Position,
+  boxes: Position[],
+  level: SokobanLevel,
+): { map: Set<string>; canonicalPos: Position } {
+  const visited = new Set<string>()
+  const queue = [start]
+  visited.add(`${start.x},${start.y}`)
+
+  // Canonical position: lowest Y, then lowest X
+  let minPos = { x: start.x, y: start.y }
+
+  // Box positions for fast lookup
+  const boxKeys = new Set(boxes.map((b) => `${b.x},${b.y}`))
+
+  while (queue.length > 0) {
+    const curr = queue.shift()
+    if (!curr) break
+
+    // Update canonical if this position is "smaller"
+    if (curr.y < minPos.y || (curr.y === minPos.y && curr.x < minPos.x)) {
+      minPos = { x: curr.x, y: curr.y }
+    }
+
+    const dirs = [
+      { x: 0, y: -1 },
+      { x: 0, y: 1 },
+      { x: -1, y: 0 },
+      { x: 1, y: 0 },
+    ]
+    for (const d of dirs) {
+      const nx = curr.x + d.x
+      const ny = curr.y + d.y
+      const key = `${nx},${ny}`
+
+      if (!visited.has(key)) {
+        if (nx >= 0 && nx < level.width && ny >= 0 && ny < level.height) {
+          const cell = level.terrain[ny]?.[nx]
+          if (cell !== 'wall' && cell !== undefined && !boxKeys.has(key)) {
+            visited.add(key)
+            queue.push({ x: nx, y: ny })
+          }
+        }
+      }
+    }
+  }
+
+  return { map: visited, canonicalPos: minPos }
+}
+
+/**
+ * BFS to find walking path from A to B (no pushing)
+ */
+function findPathBFS(
+  from: Position,
+  to: Position,
+  level: SokobanLevel,
+  boxes: Position[],
+): MoveDirection[] | null {
+  if (from.x === to.x && from.y === to.y) return []
+
+  const boxKeys = new Set(boxes.map((b) => `${b.x},${b.y}`))
+  const queue: { pos: Position; path: MoveDirection[] }[] = [{ pos: from, path: [] }]
+  const visited = new Set<string>([`${from.x},${from.y}`])
+
+  while (queue.length > 0) {
+    const item = queue.shift()
+    if (!item) break
+    const { pos, path } = item
+
+    if (pos.x === to.x && pos.y === to.y) return path
+
+    const moves: { d: MoveDirection; dx: number; dy: number }[] = [
+      { d: 'UP', dx: 0, dy: -1 },
+      { d: 'DOWN', dx: 0, dy: 1 },
+      { d: 'LEFT', dx: -1, dy: 0 },
+      { d: 'RIGHT', dx: 1, dy: 0 },
+    ]
+
+    for (const m of moves) {
+      const nx = pos.x + m.dx
+      const ny = pos.y + m.dy
+      const key = `${nx},${ny}`
+
+      if (!visited.has(key)) {
+        if (nx >= 0 && nx < level.width && ny >= 0 && ny < level.height) {
+          const cell = level.terrain[ny]?.[nx]
+          if (cell !== 'wall' && cell !== undefined && !boxKeys.has(key)) {
+            visited.add(key)
+            queue.push({ pos: { x: nx, y: ny }, path: [...path, m.d] })
+          }
+        }
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Generate a canonical state hash.
+ * Uses sorted box positions and normalized player position (canonical reachable square).
+ */
+function generateStateHash(boxes: Position[], playerCanonical: Position): string {
+  const sorted = [...boxes].sort((a, b) => a.y - b.y || a.x - b.x)
+  const boxStr = sorted.map((b) => `${b.x},${b.y}`).join(':')
+  return `${playerCanonical.x},${playerCanonical.y}|${boxStr}`
+}
+
+/**
+ * Heuristic: Sum of Manhattan distances from each box to its nearest goal.
+ * Returns 0 when all boxes are on goals.
+ */
+function calcHeuristic(boxes: Position[], goals: Position[]): number {
+  let total = 0
+  for (const box of boxes) {
+    let minDist = Number.POSITIVE_INFINITY
+    for (const goal of goals) {
+      const dist = Math.abs(box.x - goal.x) + Math.abs(box.y - goal.y)
+      if (dist < minDist) minDist = dist
+    }
+    total += minDist
+  }
+  return total
+}
+
+/**
+ * Find all goal positions in the level.
+ */
+function findGoals(level: SokobanLevel): Position[] {
+  const goals: Position[] = []
+  for (let y = 0; y < level.height; y++) {
+    for (let x = 0; x < level.width; x++) {
+      if (level.terrain[y]?.[x] === 'goal') {
+        goals.push({ x, y })
+      }
+    }
+  }
+  return goals
+}
+
+/**
+ * Check if all boxes are on goal positions.
+ */
+function isGoalState(boxes: Position[], goals: Position[]): boolean {
+  const goalSet = new Set(goals.map((g) => `${g.x},${g.y}`))
+  return boxes.every((box) => goalSet.has(`${box.x},${box.y}`))
+}
+
+/**
+ * Check if a position is a valid move target (floor/goal and not occupied by a box).
+ */
+function isValidMoveTarget(pos: Position, level: SokobanLevel, currentBoxes: Position[]): boolean {
+  if (pos.x < 0 || pos.x >= level.width || pos.y < 0 || pos.y >= level.height) return false
+  const cell = level.terrain[pos.y]?.[pos.x]
+  if (cell !== 'floor' && cell !== 'goal') return false
+  return !currentBoxes.some((b) => b.x === pos.x && b.y === pos.y)
+}
+
+// ============================================================================
+// DEADLOCK DETECTION (retained from original implementation)
+// ============================================================================
 
 /**
  * Precompute all "dead squares" - positions where a box can never be part of a solution.
@@ -52,7 +468,6 @@ function computeDeadSquares(level: SokobanLevel): Set<string> {
   }
 
   // Also mark squares along walls that lead only to dead corners (simple dead lanes)
-  // This is a simplified version - we mark squares along walls with no goals
   expandDeadLanes(deadSquares, level)
 
   return deadSquares
@@ -88,7 +503,6 @@ function isCornerWithWalls(pos: Position, level: SokobanLevel): boolean {
 function expandDeadLanes(deadSquares: Set<string>, level: SokobanLevel): void {
   // Check horizontal lanes along top and bottom walls
   for (let y = 1; y < level.height - 1; y++) {
-    // Check if this row has a wall above or below for its entire playable width
     let hasWallAbove = true
     let hasWallBelow = true
     let hasGoalInRow = false
@@ -111,7 +525,6 @@ function expandDeadLanes(deadSquares: Set<string>, level: SokobanLevel): void {
 
     // If entire row has wall above or below and no goals, mark non-corner cells as dead
     if ((hasWallAbove || hasWallBelow) && !hasGoalInRow && rowStart !== -1) {
-      // Check if both ends are dead corners
       const leftEnd = deadSquares.has(`${rowStart},${y}`)
       const rightEnd = deadSquares.has(`${rowEnd},${y}`)
 
@@ -167,13 +580,12 @@ function expandDeadLanes(deadSquares: Set<string>, level: SokobanLevel): void {
 /**
  * Check for freeze deadlock - a 2x2 area where boxes/walls form an immovable block.
  * Returns true if the current box configuration creates a freeze deadlock.
- * @param newBoxes - The box positions AFTER the push (not before)
  */
-function isFreezeDeadlock(newBoxes: Position[], level: SokobanLevel): boolean {
-  const boxSet = new Set(newBoxes.map((b) => `${b.x},${b.y}`))
+function isFreezeDeadlock(boxes: Position[], level: SokobanLevel): boolean {
+  const boxSet = new Set(boxes.map((b) => `${b.x},${b.y}`))
 
   // Check all 2x2 squares that contain any box
-  for (const box of newBoxes) {
+  for (const box of boxes) {
     // Check all four 2x2 squares that include this box
     const offsets = [
       { dx: 0, dy: 0 }, // box is top-left
@@ -221,167 +633,4 @@ function isFreezeDeadlock(newBoxes: Position[], level: SokobanLevel): boolean {
   }
 
   return false
-}
-
-/**
- * Solve a Sokoban puzzle using BFS (Breadth-First Search).
- * Returns the optimal (shortest) solution if one exists.
- *
- * @param level - The Sokoban level to solve
- * @param maxNodes - Maximum nodes to explore before giving up (default: 50000)
- * @returns SolverResult with solution if found
- */
-export function solvePuzzle(level: SokobanLevel, maxNodes = 50000): SolverResult {
-  // Precompute dead squares for this level
-  const deadSquares = computeDeadSquares(level)
-
-  const initialState: SolverState = {
-    playerPos: { ...level.playerStart },
-    boxes: level.boxStarts.map((b) => ({ ...b })),
-    moves: [],
-  }
-
-  // Check if already solved
-  if (isGoalState(initialState.boxes, level)) {
-    return {
-      solvable: true,
-      solution: [],
-      moveCount: 0,
-      nodesExplored: 1,
-      hitLimit: false,
-    }
-  }
-
-  // Check if initial state has boxes on dead squares (unsolvable)
-  for (const box of initialState.boxes) {
-    if (deadSquares.has(`${box.x},${box.y}`)) {
-      return {
-        solvable: false,
-        solution: null,
-        moveCount: 0,
-        nodesExplored: 1,
-        hitLimit: false,
-      }
-    }
-  }
-
-  const visited = new Set<string>()
-  visited.add(stateToHash(initialState))
-
-  const queue: SolverState[] = [initialState]
-  let nodesExplored = 0
-
-  while (queue.length > 0 && nodesExplored < maxNodes) {
-    const current = queue.shift()
-    if (!current) break
-    nodesExplored++
-
-    // Try each direction
-    for (const { direction, dx, dy } of DIRECTIONS) {
-      const newPlayerPos = {
-        x: current.playerPos.x + dx,
-        y: current.playerPos.y + dy,
-      }
-
-      // Check if player can move there
-      if (!isValidCell(newPlayerPos, level)) continue
-
-      // Check if there's a box at the new player position
-      const boxIndex = findBoxAt(newPlayerPos, current.boxes)
-
-      let newBoxes = current.boxes
-      if (boxIndex !== -1) {
-        // There's a box - try to push it
-        const newBoxPos = {
-          x: newPlayerPos.x + dx,
-          y: newPlayerPos.y + dy,
-        }
-
-        // Check if box can be pushed there
-        if (!isValidCell(newBoxPos, level)) continue
-        if (findBoxAt(newBoxPos, current.boxes) !== -1) continue
-
-        // Check if pushing to a dead square
-        if (deadSquares.has(`${newBoxPos.x},${newBoxPos.y}`)) continue
-
-        // Push is valid - create new box array
-        newBoxes = current.boxes.map((b, i) => (i === boxIndex ? newBoxPos : b))
-
-        // Check for freeze deadlock (2x2 box/wall patterns)
-        if (isFreezeDeadlock(newBoxes, level)) continue
-      }
-
-      const newState: SolverState = {
-        playerPos: newPlayerPos,
-        boxes: newBoxes,
-        moves: [...current.moves, direction],
-      }
-
-      const hash = stateToHash(newState)
-      if (visited.has(hash)) continue
-      visited.add(hash)
-
-      // Check if this is a goal state
-      if (isGoalState(newBoxes, level)) {
-        return {
-          solvable: true,
-          solution: newState.moves,
-          moveCount: newState.moves.length,
-          nodesExplored,
-          hitLimit: false,
-        }
-      }
-
-      queue.push(newState)
-    }
-  }
-
-  // Determine if we hit the limit or exhausted all possibilities
-  const hitLimit = nodesExplored >= maxNodes
-
-  return {
-    solvable: false,
-    solution: null,
-    moveCount: 0,
-    nodesExplored,
-    hitLimit,
-  }
-}
-
-/**
- * Create a canonical hash string for a state.
- * Boxes are sorted to ensure same state produces same hash regardless of box order.
- */
-function stateToHash(state: SolverState): string {
-  const sortedBoxes = [...state.boxes].sort((a, b) => {
-    if (a.y !== b.y) return a.y - b.y
-    return a.x - b.x
-  })
-  const boxStr = sortedBoxes.map((b) => `${b.x},${b.y}`).join('|')
-  return `${state.playerPos.x},${state.playerPos.y}:${boxStr}`
-}
-
-/**
- * Check if all boxes are on goal positions.
- */
-function isGoalState(boxes: Position[], level: SokobanLevel): boolean {
-  return boxes.every((box) => level.terrain[box.y]?.[box.x] === 'goal')
-}
-
-/**
- * Check if a position is a valid (non-wall) cell.
- */
-function isValidCell(pos: Position, level: SokobanLevel): boolean {
-  if (pos.x < 0 || pos.x >= level.width || pos.y < 0 || pos.y >= level.height) {
-    return false
-  }
-  const cell = level.terrain[pos.y]?.[pos.x]
-  return cell === 'floor' || cell === 'goal'
-}
-
-/**
- * Find the index of a box at the given position, or -1 if none.
- */
-function findBoxAt(pos: Position, boxes: Position[]): number {
-  return boxes.findIndex((b) => b.x === pos.x && b.y === pos.y)
 }
