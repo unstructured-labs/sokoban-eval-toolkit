@@ -15,12 +15,7 @@ import {
   SelectValue,
 } from '@sokoban-eval-toolkit/ui-library/components/select'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
-import { Slider } from '@sokoban-eval-toolkit/ui-library/components/slider'
-import {
-  OPENROUTER_MODELS,
-  type ReasoningEffort,
-  supportsReasoningEffort,
-} from '@sokoban-eval-toolkit/utils'
+import { OPENROUTER_MODELS } from '@sokoban-eval-toolkit/utils'
 import { AI_MOVE_DELAY } from '@src/constants'
 import {
   createSessionMetrics,
@@ -37,7 +32,7 @@ import type {
 } from '@src/types'
 import { levelToAsciiWithCoords } from '@src/utils/levelParser'
 import { DEFAULT_PROMPT_OPTIONS, generateSokobanPrompt } from '@src/utils/promptGeneration'
-import { solvePuzzle } from '@src/utils/sokobanSolver'
+import { type SolutionResult, getSolution } from '@src/utils/solutionCache'
 import { movesToNotation } from '@src/utils/solutionValidator'
 import { AlertCircle, Copy } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -69,7 +64,6 @@ export function AIPanel({
 }: AIPanelProps) {
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [promptOptions, setPromptOptions] = useState<PromptOptions>(DEFAULT_PROMPT_OPTIONS)
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('medium')
 
   const [isRunning, setIsRunning] = useState(false)
   const [plannedMoves, setPlannedMoves] = useState<ExtendedPlannedMove[]>([])
@@ -86,6 +80,7 @@ export function AIPanel({
   const [copiedReasoningContext, setCopiedReasoningContext] = useState(false)
   const [wasManuallyStopped, setWasManuallyStopped] = useState(false)
   const [storedSolution, setStoredSolution] = useState<MoveDirection[]>([])
+  const [cachedSolution, setCachedSolution] = useState<SolutionResult | null>(null)
 
   const abortRef = useRef(false)
   const isRunningRef = useRef(false)
@@ -133,6 +128,7 @@ export function AIPanel({
       setInflightStartTime(null)
       setWasManuallyStopped(false)
       setStoredSolution([])
+      setCachedSolution(null)
       abortRef.current = true
       isRunningRef.current = false
       isReplayingRef.current = false
@@ -140,6 +136,15 @@ export function AIPanel({
       onInferenceTimeChange?.(null)
     }
   }, [levelId, onInferenceTimeChange])
+
+  // Load solution when level changes (cache first, then solver)
+  useEffect(() => {
+    if (!state?.level) {
+      setCachedSolution(null)
+      return
+    }
+    getSolution(state.level).then(setCachedSolution)
+  }, [state?.level])
 
   // Notify parent of inference time changes
   useEffect(() => {
@@ -211,13 +216,8 @@ export function AIPanel({
 
     setInflightStartTime(Date.now())
 
-    // Get solution from LLM (pass reasoning effort for supported models)
-    const response = await getSokobanSolution(
-      state,
-      model,
-      promptOptions,
-      supportsReasoningEffort(model) ? reasoningEffort : undefined,
-    )
+    // Get solution from LLM
+    const response = await getSokobanSolution(state, model, promptOptions)
 
     setInflightStartTime(null)
 
@@ -259,7 +259,7 @@ export function AIPanel({
     setTimeout(() => {
       executeNextMove()
     }, 300)
-  }, [state, isRunning, model, promptOptions, reasoningEffort, onReset, executeNextMove])
+  }, [state, isRunning, model, promptOptions, onReset, executeNextMove])
 
   const handleStop = useCallback(() => {
     abortRef.current = true
@@ -453,15 +453,17 @@ export function AIPanel({
     parts.push('[ACTUAL PUZZLE SOLUTION]')
     parts.push('='.repeat(60))
     parts.push('')
-    const solverResult = solvePuzzle(state.level)
-    if (solverResult.solvable && solverResult.solution) {
-      parts.push(`Shortest Solution: ${solverResult.moveCount} moves`)
-      parts.push(`Moves: ${solverResult.solution.join(', ')}`)
-      parts.push(`Sokoban Notation: ${movesToNotation(solverResult.solution)}`)
-    } else if (solverResult.hitLimit) {
-      parts.push('Solver hit exploration limit - solution exists but could not be computed')
+    if (cachedSolution?.found) {
+      parts.push(`Shortest Solution: ${cachedSolution.moveCount} moves`)
+      parts.push(`Moves: ${cachedSolution.solution.join(', ')}`)
+      parts.push(`Sokoban Notation: ${movesToNotation(cachedSolution.solution)}`)
+      parts.push(
+        `Source: ${cachedSolution.source === 'cache' ? 'Pre-computed cache' : 'Runtime solver'}`,
+      )
+    } else if (cachedSolution?.hitLimit) {
+      parts.push('Solver hit exploration limit - solution may exist but could not be computed')
     } else {
-      parts.push('No solution found by solver')
+      parts.push('Puzzle Unsolved')
     }
     parts.push('')
 
@@ -499,7 +501,16 @@ export function AIPanel({
     parts.push('- 96-100: Exceptional (optimal solution with insightful reasoning)')
 
     return parts.join('\n')
-  }, [state, nativeReasoning, parsedReasoning, storedSolution, rawResponse, plannedMoves, error])
+  }, [
+    state,
+    nativeReasoning,
+    parsedReasoning,
+    storedSolution,
+    rawResponse,
+    plannedMoves,
+    error,
+    cachedSolution,
+  ])
 
   const handleCopyReasoningContext = useCallback(async () => {
     const context = generateReasoningContext()
@@ -640,33 +651,6 @@ export function AIPanel({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        )}
-
-        {/* Reasoning effort slider - only show for models that support it */}
-        {!isRunning && plannedMoves.length === 0 && supportsReasoningEffort(model) && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Reasoning Level</Label>
-              <span className="text-xs text-muted-foreground capitalize">{reasoningEffort}</span>
-            </div>
-            <Slider
-              value={[reasoningEffort === 'low' ? 0 : reasoningEffort === 'medium' ? 1 : 2]}
-              onValueChange={(value) => {
-                const levels: ReasoningEffort[] = ['low', 'medium', 'high']
-                setReasoningEffort(levels[value[0] ?? 1] ?? 'medium')
-              }}
-              min={0}
-              max={2}
-              step={1}
-              disabled={disabled || !hasApiKey}
-              className="w-full"
-            />
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>Low</span>
-              <span>Medium</span>
-              <span>High</span>
-            </div>
           </div>
         )}
 

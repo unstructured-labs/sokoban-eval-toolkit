@@ -2,9 +2,9 @@ import { Button } from '@sokoban-eval-toolkit/ui-library/components/button'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
 import type { GameState, MoveDirection } from '@src/types'
 import { isSimpleDeadlock } from '@src/utils/gameEngine'
-import { solvePuzzle } from '@src/utils/sokobanSolver'
+import { type SolutionResult, getSolution } from '@src/utils/solutionCache'
 import { AlertTriangle, RotateCcw, Undo2 } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 interface ControlPanelProps {
   state: GameState | null
@@ -49,25 +49,35 @@ export function ControlPanel({
 
   const hasDeadlock = state ? isSimpleDeadlock(state) : false
 
-  // Compute optimal solution from current state
-  const solverResult = useMemo(() => {
-    if (!state || state.isWon) return null
+  // Look up solution for the original level (cache first, then solver)
+  const [solution, setSolution] = useState<SolutionResult | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-    // Create a temporary level with current positions
-    const tempLevel = {
-      ...state.level,
-      playerStart: state.playerPos,
-      boxStarts: state.boxes,
+  useEffect(() => {
+    if (!state?.level) {
+      setSolution(null)
+      return
     }
 
-    const result = solvePuzzle(tempLevel, 50000)
-    return {
-      solvable: result.solvable,
-      moveCount: result.moveCount,
-      solution: result.solution,
-      hitLimit: result.hitLimit,
-    }
-  }, [state])
+    setIsLoading(true)
+    getSolution(state.level)
+      .then(setSolution)
+      .finally(() => setIsLoading(false))
+  }, [state?.level])
+
+  // Calculate remaining moves from original solution
+  const remainingMoves = useMemo(() => {
+    if (!solution?.found || !state) return null
+    // Remaining moves = original solution length - moves made so far
+    const remaining = solution.moveCount - state.moveHistory.length
+    return remaining > 0 ? remaining : 0
+  }, [solution, state])
+
+  // Get the solution moves
+  const solutionMoves = useMemo(() => {
+    if (!solution?.found || !state) return null
+    return solution.solution
+  }, [solution, state])
 
   return (
     <div className="space-y-3">
@@ -93,21 +103,36 @@ export function ControlPanel({
         </div>
       </div>
 
-      {/* Solver optimal solution */}
-      {state && !state.isWon && solverResult && (
+      {/* Solution info */}
+      {state && !state.isWon && (
         <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
-          {solverResult.solvable ? (
+          {isLoading ? (
+            <span>Solving...</span>
+          ) : solution?.found ? (
             <>
               <span>
-                Shortest Solution:{' '}
-                <span className="font-semibold text-foreground">{solverResult.moveCount}</span>{' '}
-                moves
+                {state.moveHistory.length === 0 ? (
+                  <>
+                    Shortest Solution:{' '}
+                    <span className="font-semibold text-foreground">{solution.moveCount}</span>{' '}
+                    moves
+                  </>
+                ) : (
+                  <>
+                    Original:{' '}
+                    <span className="font-semibold text-foreground">{solution.moveCount}</span>{' '}
+                    moves
+                    {remainingMoves !== null && remainingMoves > 0 && (
+                      <span className="text-muted-foreground"> (~{remainingMoves} left)</span>
+                    )}
+                  </>
+                )}
               </span>
-              {onRunSolution && solverResult.solution && (
+              {onRunSolution && solutionMoves && state.moveHistory.length === 0 && (
                 <Button
                   onClick={() => {
-                    if (solverResult.solution) {
-                      onRunSolution(solverResult.solution)
+                    if (solutionMoves) {
+                      onRunSolution(solutionMoves)
                     }
                   }}
                   disabled={disabled || isPlayingSolution}
@@ -120,10 +145,10 @@ export function ControlPanel({
                 </Button>
               )}
             </>
-          ) : solverResult.hitLimit ? (
-            <span className="text-amber-500">Solver limit hit (puzzle may be solvable)</span>
+          ) : solution?.hitLimit ? (
+            <span className="text-amber-500">Solver limit hit (may be solvable)</span>
           ) : (
-            <span className="text-amber-500">No solution found</span>
+            <span className="text-amber-500">Puzzle Unsolved</span>
           )}
         </div>
       )}

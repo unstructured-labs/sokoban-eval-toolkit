@@ -2,24 +2,6 @@ export interface OpenRouterModel {
   id: string
   name: string
   description: string
-  /** Whether the model supports reasoning effort control (low/medium/high) */
-  supportsReasoningEffort?: boolean
-}
-
-/** Reasoning effort levels for models that support extended thinking */
-export type ReasoningEffort = 'low' | 'medium' | 'high'
-
-/** List of model ID prefixes that support reasoning effort */
-export const REASONING_EFFORT_MODEL_PREFIXES = [
-  'google/gemini-3-',
-  'openai/gpt-5',
-  'openai/o1',
-  'openai/o3',
-]
-
-/** Check if a model supports reasoning effort configuration */
-export function supportsReasoningEffort(modelId: string): boolean {
-  return REASONING_EFFORT_MODEL_PREFIXES.some((prefix) => modelId.startsWith(prefix))
 }
 
 export const OPENROUTER_MODELS: OpenRouterModel[] = [
@@ -28,13 +10,11 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
     id: 'google/gemini-3-pro-preview',
     name: 'Gemini 3 Pro Preview ⭐',
     description: "Google's flagship model",
-    supportsReasoningEffort: true,
   },
   {
     id: 'google/gemini-3-flash-preview',
     name: 'Gemini 3 Flash Preview',
     description: "Google's fastest model",
-    supportsReasoningEffort: true,
   },
   {
     id: 'google/gemini-2.5-pro',
@@ -57,13 +37,11 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
     id: 'openai/gpt-5.2-pro',
     name: 'GPT-5.2 Pro ⭐',
     description: 'Most capable OpenAI model (Pro)',
-    supportsReasoningEffort: true,
   },
   {
     id: 'openai/gpt-5.2',
     name: 'GPT-5.2',
     description: 'Most capable OpenAI model (Standard)',
-    supportsReasoningEffort: true,
   },
   {
     id: 'openai/gpt-4o',

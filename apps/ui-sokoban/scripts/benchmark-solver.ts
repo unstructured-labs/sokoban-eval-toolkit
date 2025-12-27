@@ -19,6 +19,9 @@ import { solvePuzzle } from '../src/utils/sokobanSolver'
 // Cache file path (same directory as script)
 const CACHE_FILE = new URL('./solution-cache.json', import.meta.url).pathname
 
+// Lite cache file path (in src/data for UI consumption)
+const LITE_CACHE_FILE = new URL('../src/data/solutionCacheLite.json', import.meta.url).pathname
+
 /** Cached solution entry with metadata */
 interface CacheEntry {
   /** Source identifier (e.g., "Boxoban Hard #329") */
@@ -106,6 +109,34 @@ function saveCache(cache: SolutionCache): void {
     console.log(`\nCache saved to ${CACHE_FILE}`)
   } catch (error) {
     console.error('Error saving cache:', error)
+  }
+}
+
+/** Lite cache structure: hash -> solution string */
+interface LiteSolutionCache {
+  [hash: string]: string
+}
+
+/**
+ * Generate and save the lite cache for UI consumption.
+ * Only includes solved puzzles with their solution strings.
+ */
+function saveLiteCache(cache: SolutionCache): void {
+  const liteCache: LiteSolutionCache = {}
+
+  for (const [hash, entry] of Object.entries(cache)) {
+    // Only include solved puzzles with valid solutions
+    if (entry.solved && entry.solution) {
+      liteCache[hash] = entry.solution
+    }
+  }
+
+  try {
+    writeFileSync(LITE_CACHE_FILE, JSON.stringify(liteCache, null, 2))
+    const solvedCount = Object.keys(liteCache).length
+    console.log(`Lite cache saved to ${LITE_CACHE_FILE} (${solvedCount} solutions)`)
+  } catch (error) {
+    console.error('Error saving lite cache:', error)
   }
 }
 
@@ -288,4 +319,5 @@ console.log(`Total time:       ${(totalTime / 1000).toFixed(2)}s`)
 const newEntries = Object.keys(cache).length - existingEntries
 console.log(`\nNew solutions cached: ${newEntries}`)
 saveCache(cache)
+saveLiteCache(cache)
 console.log('')
