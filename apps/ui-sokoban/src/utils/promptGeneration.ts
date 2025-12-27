@@ -1,5 +1,5 @@
 import type { GameState, PromptOptions } from '@src/types'
-import { gameStateToAscii, gameStateToAsciiWithCoords } from './levelParser'
+import { gameStateToAscii } from './levelParser'
 
 // Cipher symbol mapping (non-standard symbols to replace standard Sokoban notation)
 const CIPHER_MAP = {
@@ -105,7 +105,7 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   if (options.asciiGrid) {
     parts.push('## Current State (ASCII Grid)')
     parts.push('```')
-    const gridAscii = gameStateToAsciiWithCoords(state)
+    const gridAscii = gameStateToAscii(state)
     parts.push(useCipher ? applyCipherSymbols(gridAscii) : gridAscii)
     parts.push('```')
     parts.push('')
@@ -121,20 +121,12 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
     parts.push('')
   }
 
-  // Coordinate locations format
+  // Coordinate locations format (optional, for detailed position info)
   if (options.coordinateLocations) {
-    parts.push('## Current State (Coordinate Locations)')
+    parts.push('## Positions')
     parts.push(generateCoordinateLocationsFormat(state))
     parts.push('')
   }
-
-  // Coordinates are always included
-  parts.push('## Positions (x, y where 0,0 is top-left)')
-  parts.push(`- Player: (${state.playerPos.x}, ${state.playerPos.y})`)
-  parts.push(`- Boxes: ${state.boxes.map((b) => `(${b.x}, ${b.y})`).join(', ')}`)
-  parts.push(`- Goals: ${state.level.goals.map((g) => `(${g.x}, ${g.y})`).join(', ')}`)
-  parts.push(`- Grid size: ${state.level.width}x${state.level.height}`)
-  parts.push('')
 
   // Notation guide is always included
   parts.push('## Notation Guide')
@@ -225,7 +217,7 @@ export function generateMoveByMovePrompt(state: GameState, moveHistory: string[]
   parts.push('')
   parts.push('Current state:')
   parts.push('```')
-  parts.push(gameStateToAsciiWithCoords(state))
+  parts.push(gameStateToAscii(state))
   parts.push('```')
   parts.push('')
 
