@@ -39,12 +39,13 @@ export function SokobanGame() {
   const [isPlayingSolution, setIsPlayingSolution] = useState(false)
   const [isEditing, setIsEditing] = useState(true)
   const [selectedEntity, setSelectedEntity] = useState<{
-    type: 'player' | 'box' | 'goal'
+    type: 'player' | 'box' | 'goal' | 'player-goal'
     index?: number
     x: number
     y: number
   } | null>(null)
   const [isDraggingWalls, setIsDraggingWalls] = useState(false)
+  const [addMode, setAddMode] = useState<'goal' | 'box' | 'player-goal' | 'remove' | null>(null)
   const solutionMovesRef = useRef<MoveDirection[]>([])
   const solutionIndexRef = useRef(0)
   const solutionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -222,6 +223,7 @@ export function SokobanGame() {
       playerStart: gameState.playerPos,
       boxStarts: gameState.boxes,
       goals,
+      playerGoal: gameState.level.playerGoal,
     }
 
     saveLayout(layout)
@@ -244,6 +246,7 @@ export function SokobanGame() {
         playerStart: layout.playerStart,
         boxStarts: layout.boxStarts,
         goals: layout.goals,
+        playerGoal: layout.playerGoal,
         difficulty: layout.difficulty,
         fileSource: 'saved',
         puzzleNumber: 0,
@@ -308,6 +311,9 @@ export function SokobanGame() {
       // If an entity is selected, don't start wall dragging - let click handler move the entity
       if (selectedEntity) return
 
+      // If add mode is active, don't start wall dragging - let click handler place the entity
+      if (addMode) return
+
       // Don't allow editing border walls
       if (
         x === 0 ||
@@ -323,7 +329,7 @@ export function SokobanGame() {
       // Flip the starting cell
       flipCell(x, y)
     },
-    [gameState, isEditing, flipCell, selectedEntity],
+    [gameState, isEditing, flipCell, selectedEntity, addMode],
   )
 
   // Continue drag painting - flip each cell as we enter it
@@ -469,11 +475,141 @@ export function SokobanGame() {
       const isBoxHere = boxIndex !== -1
       const isGoalHere = currentTerrain === 'goal'
       const isWall = currentTerrain === 'wall'
+      const isPlayerGoalHere =
+        gameState.level.playerGoal?.x === x && gameState.level.playerGoal?.y === y
 
-      // If clicking on player, box, or goal - handle selection
-      if (isPlayerHere || isBoxHere || (isGoalHere && !isPlayerHere && !isBoxHere)) {
-        // Determine what we clicked on (priority: player > box > goal)
-        let clickedType: 'player' | 'box' | 'goal'
+      // Handle add mode
+      if (addMode) {
+        // Handle remove mode separately (can work on any cell with removable content)
+        if (addMode === 'remove') {
+          // Remove box if present
+          if (isBoxHere) {
+            const newBoxes = gameState.boxes.filter((b) => !(b.x === x && b.y === y))
+            const newLevel = {
+              ...gameState.level,
+              boxStarts: newBoxes,
+            }
+            setGameState({
+              ...gameState,
+              boxes: newBoxes,
+              level: newLevel,
+            })
+            setCurrentLevel(newLevel)
+            return
+          }
+
+          // Remove goal if present
+          if (isGoalHere) {
+            const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
+              rowY === y ? row.map((cell, cellX) => (cellX === x ? 'floor' : cell)) : row,
+            )
+            const newLevel = {
+              ...gameState.level,
+              terrain: newTerrainGrid,
+            }
+            setGameState({
+              ...gameState,
+              level: newLevel,
+            })
+            setCurrentLevel(newLevel)
+            return
+          }
+
+          // Remove player goal if present
+          if (isPlayerGoalHere) {
+            const newLevel = {
+              ...gameState.level,
+              playerGoal: undefined,
+            }
+            setGameState({
+              ...gameState,
+              level: newLevel,
+            })
+            setCurrentLevel(newLevel)
+            return
+          }
+
+          return
+        }
+
+        // Can't add on border cells
+        if (
+          x === 0 ||
+          x === gameState.level.width - 1 ||
+          y === 0 ||
+          y === gameState.level.height - 1
+        ) {
+          return
+        }
+
+        // Can't add on walls
+        if (isWall) return
+
+        if (addMode === 'goal') {
+          // Can't add goal where one already exists
+          if (isGoalHere) return
+
+          // Add goal by setting terrain to 'goal'
+          const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
+            rowY === y ? row.map((cell, cellX) => (cellX === x ? 'goal' : cell)) : row,
+          )
+
+          const newLevel = {
+            ...gameState.level,
+            terrain: newTerrainGrid,
+          }
+
+          setGameState({
+            ...gameState,
+            level: newLevel,
+          })
+          setCurrentLevel(newLevel)
+        } else if (addMode === 'box') {
+          // Can't add box where player or another box exists
+          if (isPlayerHere || isBoxHere) return
+
+          // Add box to the array
+          const newBoxes = [...gameState.boxes, { x, y }]
+          const newLevel = {
+            ...gameState.level,
+            boxStarts: newBoxes,
+          }
+
+          setGameState({
+            ...gameState,
+            boxes: newBoxes,
+            level: newLevel,
+          })
+          setCurrentLevel(newLevel)
+        } else if (addMode === 'player-goal') {
+          // Can't add player goal where one already exists
+          if (isPlayerGoalHere) return
+
+          // Set player goal (replaces any existing one since there can only be one)
+          const newLevel = {
+            ...gameState.level,
+            playerGoal: { x, y },
+          }
+
+          setGameState({
+            ...gameState,
+            level: newLevel,
+          })
+          setCurrentLevel(newLevel)
+        }
+
+        return
+      }
+
+      // If clicking on player, box, goal, or player-goal - handle selection
+      if (
+        isPlayerHere ||
+        isBoxHere ||
+        (isGoalHere && !isPlayerHere && !isBoxHere) ||
+        (isPlayerGoalHere && !isPlayerHere)
+      ) {
+        // Determine what we clicked on (priority: player > box > goal > player-goal)
+        let clickedType: 'player' | 'box' | 'goal' | 'player-goal'
         let clickedIndex: number | undefined
 
         if (isPlayerHere) {
@@ -481,8 +617,10 @@ export function SokobanGame() {
         } else if (isBoxHere) {
           clickedType = 'box'
           clickedIndex = boxIndex
-        } else {
+        } else if (isGoalHere) {
           clickedType = 'goal'
+        } else {
+          clickedType = 'player-goal'
         }
 
         // If same entity is already selected, deselect it
@@ -572,6 +710,18 @@ export function SokobanGame() {
             level: newLevel,
           })
           setCurrentLevel(newLevel)
+        } else if (selectedEntity.type === 'player-goal') {
+          // Move player goal to new position
+          const newLevel = {
+            ...gameState.level,
+            playerGoal: { x, y },
+          }
+
+          setGameState({
+            ...gameState,
+            level: newLevel,
+          })
+          setCurrentLevel(newLevel)
         }
 
         // Clear selection after moving
@@ -582,7 +732,7 @@ export function SokobanGame() {
       // Wall toggling is handled by drag handler (handleCellDragStart)
       // so we don't need to handle it here
     },
-    [gameState, isEditing, selectedEntity],
+    [gameState, isEditing, selectedEntity, addMode],
   )
 
   // Keyboard controls
@@ -670,27 +820,78 @@ export function SokobanGame() {
       <div className="flex-1 flex flex-col items-center px-5 py-6 min-w-0">
         {/* Save/Load layouts UI - at top */}
         <div className="flex-1 flex flex-col justify-start">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <SavedLayoutsOverlay
               layouts={savedLayouts}
               onLoad={handleLoadLayout}
               onDelete={handleDeleteLayout}
             />
-            <input
-              type="text"
-              placeholder="Layout name..."
-              value={layoutName}
-              onChange={(e) => setLayoutName(e.target.value)}
-              className="h-8 px-2 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary w-32"
-            />
-            <button
-              type="button"
-              onClick={handleSaveLayout}
-              disabled={!layoutName.trim() || !gameState}
-              className="h-8 px-2 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-500 rounded border border-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none whitespace-nowrap"
-            >
-              Save
-            </button>
+            {/* Controls wrapper - stays aligned at top with consistent height */}
+            <div className="flex items-center gap-2">
+              {isEditing && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode(addMode === 'goal' ? null : 'goal')}
+                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                      addMode === 'goal'
+                        ? 'bg-[hsl(var(--sokoban-goal))]/20 text-[hsl(var(--sokoban-goal))] border-[hsl(var(--sokoban-goal))]/50'
+                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                    }`}
+                  >
+                    + Goal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode(addMode === 'box' ? null : 'box')}
+                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                      addMode === 'box'
+                        ? 'bg-[hsl(var(--sokoban-box))]/20 text-[hsl(var(--sokoban-box))] border-[hsl(var(--sokoban-box))]/50'
+                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                    }`}
+                  >
+                    + Box
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode(addMode === 'player-goal' ? null : 'player-goal')}
+                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                      addMode === 'player-goal'
+                        ? 'bg-[hsl(var(--sokoban-player))]/20 text-[hsl(var(--sokoban-player))] border-[hsl(var(--sokoban-player))]/50'
+                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                    }`}
+                  >
+                    + Player Goal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode(addMode === 'remove' ? null : 'remove')}
+                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                      addMode === 'remove'
+                        ? 'bg-red-500/20 text-red-500 border-red-500/50'
+                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                    }`}
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+              <input
+                type="text"
+                placeholder="Layout name..."
+                value={layoutName}
+                onChange={(e) => setLayoutName(e.target.value)}
+                className="h-8 px-2 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary w-32"
+              />
+              <button
+                type="button"
+                onClick={handleSaveLayout}
+                disabled={!layoutName.trim() || !gameState}
+                className="h-8 px-2 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-500 rounded border border-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none whitespace-nowrap"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </div>
 
@@ -723,6 +924,7 @@ export function SokobanGame() {
             onCellDragEnter={handleCellDragEnter}
             onDragEnd={handleDragEnd}
             isDragging={isDraggingWalls}
+            addMode={addMode}
           />
 
           {/* Legend */}
@@ -738,6 +940,15 @@ export function SokobanGame() {
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-full bg-[hsl(var(--sokoban-goal))] opacity-60" />
               <span>Goal</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div
+                className="w-3 h-3 flex items-center justify-center text-[hsl(var(--sokoban-player))]"
+                style={{ fontSize: '10px' }}
+              >
+                ★
+              </div>
+              <span>Player Goal</span>
             </div>
           </div>
 

@@ -10,6 +10,8 @@ const CIPHER_MAP = {
   boxOnGoal: 'X',
   playerOnGoal: 'Y',
   floor: '_',
+  playerGoal: 'T', // Target for player
+  playerOnPlayerGoal: 'Z', // Player on their target
 } as const
 
 /**
@@ -37,6 +39,9 @@ function generateCoordinateLocationsFormat(state: GameState): string {
   parts.push(`Player Location: (${state.playerPos.x},${state.playerPos.y})`)
   parts.push(`Box Locations: ${state.boxes.map((b) => `(${b.x},${b.y})`).join(', ')}`)
   parts.push(`Goal Locations: ${state.level.goals.map((g) => `(${g.x},${g.y})`).join(', ')}`)
+  if (state.level.playerGoal) {
+    parts.push(`Player Goal Location: (${state.level.playerGoal.x},${state.level.playerGoal.y})`)
+  }
   return parts.join('\n')
 }
 
@@ -52,6 +57,8 @@ function applyCipherSymbols(ascii: string): string {
     .replace(/\*/g, CIPHER_MAP.boxOnGoal)
     .replace(/\+/g, CIPHER_MAP.playerOnGoal)
     .replace(/-/g, CIPHER_MAP.floor)
+    .replace(/%/g, CIPHER_MAP.playerGoal)
+    .replace(/!/g, CIPHER_MAP.playerOnPlayerGoal)
 }
 
 /**
@@ -73,6 +80,8 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
         boxOnGoal: CIPHER_MAP.boxOnGoal,
         playerOnGoal: CIPHER_MAP.playerOnGoal,
         floor: CIPHER_MAP.floor,
+        playerGoal: CIPHER_MAP.playerGoal,
+        playerOnPlayerGoal: CIPHER_MAP.playerOnPlayerGoal,
       }
     : {
         wall: '#',
@@ -82,14 +91,38 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
         boxOnGoal: '*',
         playerOnGoal: '+',
         floor: '-',
+        playerGoal: '%',
+        playerOnPlayerGoal: '!',
       }
+
+  // Check if there's a player goal
+  const hasPlayerGoal = !!state.level.playerGoal
 
   // Header
   parts.push('# Sokoban Puzzle')
   parts.push('')
-  parts.push(
-    `You are solving a Sokoban puzzle. Push all boxes (${symbols.box}) onto goals (${symbols.goal}) to win.`,
-  )
+  if (hasPlayerGoal) {
+    parts.push(
+      'This is a Sokoban-like game with a modification. In addition to the normal rules, the final goal is to move the player onto the Player Goal location, which is a specific location on the board.',
+    )
+    parts.push('')
+    // Check if there are more boxes than goals
+    const numBoxes = state.boxes.length
+    const numGoals = state.level.goals.length
+    if (numBoxes > numGoals) {
+      parts.push(
+        `Note: There are more boxes (${numBoxes}) than box goals (${numGoals}). You must cover all available box goals with boxes, leaving ${numBoxes - numGoals} box(es) not on goals. Then move the player to the Player Goal.`,
+      )
+      parts.push('')
+    }
+    parts.push(
+      `Cover all box goals (${symbols.goal}) with boxes (${symbols.box}), AND move the player (${symbols.player}) to the Player Goal (${symbols.playerGoal}) to win.`,
+    )
+  } else {
+    parts.push(
+      `You are solving a Sokoban puzzle. Push all boxes (${symbols.box}) onto goals (${symbols.goal}) to win.`,
+    )
+  }
   parts.push('')
 
   // Rules
@@ -99,6 +132,19 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   parts.push('- You cannot pull boxes')
   parts.push('- You cannot push more than one box at a time')
   parts.push(`- Walls (${symbols.wall}) are impassable`)
+  if (hasPlayerGoal) {
+    const numBoxes = state.boxes.length
+    const numGoals = state.level.goals.length
+    if (numBoxes > numGoals) {
+      parts.push(
+        `- The puzzle is solved when all ${numGoals} box goals are covered by boxes AND the player is on the Player Goal (${symbols.playerGoal})`,
+      )
+    } else {
+      parts.push(
+        `- The puzzle is solved when all boxes are on goals AND the player is on the Player Goal (${symbols.playerGoal})`,
+      )
+    }
+  }
   parts.push('')
 
   // Current state representation
@@ -113,10 +159,14 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
     parts.push(`- ${symbols.wall} = Wall`)
     parts.push(`- ${symbols.player} = Player`)
     parts.push(`- ${symbols.box} = Box`)
-    parts.push(`- ${symbols.goal} = Goal`)
+    parts.push(`- ${symbols.goal} = Goal (for boxes)`)
     parts.push(`- ${symbols.boxOnGoal} = Box on Goal`)
     parts.push(`- ${symbols.playerOnGoal} = Player on Goal`)
     parts.push(`- ${symbols.floor} = Floor`)
+    if (hasPlayerGoal) {
+      parts.push(`- ${symbols.playerGoal} = Player Goal (destination for player)`)
+      parts.push(`- ${symbols.playerOnPlayerGoal} = Player on Player Goal (win condition)`)
+    }
     parts.push('- | = Row boundary (end of each row)')
     parts.push('')
   }
@@ -195,8 +245,23 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
  */
 export function generateMinimalPrompt(state: GameState): string {
   const parts: string[] = []
+  const hasPlayerGoal = !!state.level.playerGoal
 
-  parts.push('Solve this Sokoban puzzle. Push boxes ($) to goals (.).')
+  if (hasPlayerGoal) {
+    const numBoxes = state.boxes.length
+    const numGoals = state.level.goals.length
+    if (numBoxes > numGoals) {
+      parts.push(
+        `Solve this Sokoban puzzle. Cover all ${numGoals} box goals (.) with boxes ($), then move the player (@) to the Player Goal (%). Note: ${numBoxes} boxes but only ${numGoals} goals.`,
+      )
+    } else {
+      parts.push(
+        'Solve this Sokoban puzzle. Push boxes ($) to goals (.) AND move the player (@) to the Player Goal (%).',
+      )
+    }
+  } else {
+    parts.push('Solve this Sokoban puzzle. Push boxes ($) to goals (.).')
+  }
   parts.push('')
   parts.push('```')
   parts.push(gameStateToAscii(state))
@@ -212,8 +277,23 @@ export function generateMinimalPrompt(state: GameState): string {
  */
 export function generateMoveByMovePrompt(state: GameState, moveHistory: string[]): string {
   const parts: string[] = []
+  const hasPlayerGoal = !!state.level.playerGoal
 
-  parts.push('Sokoban puzzle - provide the NEXT SINGLE MOVE.')
+  if (hasPlayerGoal) {
+    const numBoxes = state.boxes.length
+    const numGoals = state.level.goals.length
+    if (numBoxes > numGoals) {
+      parts.push(
+        `Sokoban puzzle (with Player Goal) - provide the NEXT SINGLE MOVE. Cover all ${numGoals} goals with boxes, then player must reach %.`,
+      )
+    } else {
+      parts.push(
+        'Sokoban puzzle (with Player Goal) - provide the NEXT SINGLE MOVE. Player must reach % after all boxes are on goals.',
+      )
+    }
+  } else {
+    parts.push('Sokoban puzzle - provide the NEXT SINGLE MOVE.')
+  }
   parts.push('')
   parts.push('Current state:')
   parts.push('```')
@@ -230,6 +310,12 @@ export function generateMoveByMovePrompt(state: GameState, moveHistory: string[]
     (box) => state.level.terrain[box.y]?.[box.x] === 'goal',
   ).length
   parts.push(`Progress: ${boxesOnGoals}/${state.boxes.length} boxes on goals`)
+  if (hasPlayerGoal) {
+    const playerOnGoal =
+      state.playerPos.x === state.level.playerGoal?.x &&
+      state.playerPos.y === state.level.playerGoal?.y
+    parts.push(`Player on Player Goal: ${playerOnGoal ? 'Yes' : 'No'}`)
+  }
   parts.push('')
   parts.push('Reply with ONE move: UP, DOWN, LEFT, or RIGHT')
 

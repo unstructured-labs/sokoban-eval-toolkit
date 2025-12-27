@@ -2,7 +2,7 @@ import { CELL_SIZE } from '@src/constants'
 import type { GameState, Position } from '@src/types'
 
 interface SelectedEntity {
-  type: 'player' | 'box' | 'goal'
+  type: 'player' | 'box' | 'goal' | 'player-goal'
   index?: number
   x: number
   y: number
@@ -19,6 +19,7 @@ interface SokobanGridProps {
   onCellDragEnter?: (x: number, y: number) => void
   onDragEnd?: () => void
   isDragging?: boolean
+  addMode?: 'goal' | 'box' | 'player-goal' | 'remove' | null
 }
 
 export function SokobanGrid({
@@ -32,6 +33,7 @@ export function SokobanGrid({
   onCellDragEnter,
   onDragEnd,
   isDragging = false,
+  addMode = null,
 }: SokobanGridProps) {
   if (!state) {
     return (
@@ -57,6 +59,9 @@ export function SokobanGrid({
 
   const isPlayer = (x: number, y: number) => playerPos.x === x && playerPos.y === y
 
+  const isPlayerGoal = (x: number, y: number) =>
+    level.playerGoal?.x === x && level.playerGoal?.y === y
+
   const gridWidth = level.width * CELL_SIZE
   const gridHeight = level.height * CELL_SIZE
 
@@ -77,6 +82,7 @@ export function SokobanGrid({
           row.map((terrain, x) => {
             const isWall = terrain === 'wall'
             const cellIsGoal = isGoal(x, y)
+            const cellIsPlayerGoal = isPlayerGoal(x, y)
             const cellHasBox = isBox(x, y)
             const cellBoxOnGoal = isBoxOnGoal(x, y)
             const cellIsPlayer = isPlayer(x, y)
@@ -97,12 +103,27 @@ export function SokobanGrid({
               !cellIsPlayer &&
               selectedEntity.x === x &&
               selectedEntity.y === y
+            const isSelectedPlayerGoal =
+              selectedEntity?.type === 'player-goal' &&
+              cellIsPlayerGoal &&
+              selectedEntity.x === x &&
+              selectedEntity.y === y
 
             // Can click if: editing mode on
             const canClick = isEditing
 
             // Check if this is a plain floor/wall cell (no entities)
-            const isPlainCell = !cellIsPlayer && !cellHasBox && !cellIsGoal
+            const isPlainCell = !cellIsPlayer && !cellHasBox && !cellIsGoal && !cellIsPlayerGoal
+
+            // Check if this cell is a valid target for add mode
+            const isBorderCell =
+              x === 0 || x === level.width - 1 || y === 0 || y === level.height - 1
+            const canAddGoal = addMode === 'goal' && !isWall && !cellIsGoal && !isBorderCell
+            const canAddBox =
+              addMode === 'box' && !isWall && !cellIsPlayer && !cellHasBox && !isBorderCell
+            const canAddPlayerGoal =
+              addMode === 'player-goal' && !isWall && !cellIsPlayerGoal && !isBorderCell
+            const canRemove = addMode === 'remove' && (cellIsGoal || cellHasBox || cellIsPlayerGoal)
 
             return (
               <div
@@ -114,6 +135,12 @@ export function SokobanGrid({
                     : cellIsHighlighted
                       ? 'hsl(var(--primary) / 0.2)'
                       : 'hsl(var(--sokoban-floor))',
+                  cursor:
+                    canAddGoal || canAddBox || canAddPlayerGoal
+                      ? 'crosshair'
+                      : canRemove
+                        ? 'pointer'
+                        : undefined,
                 }}
                 onClick={canClick ? () => onCellClick?.(x, y) : undefined}
                 onMouseDown={
@@ -151,6 +178,40 @@ export function SokobanGrid({
                       boxShadow: isSelectedGoal ? '0 0 0 3px #facc15' : undefined,
                     }}
                   />
+                )}
+
+                {/* Player goal marker (star shape) */}
+                {cellIsPlayerGoal && !cellIsPlayer && (
+                  <div
+                    className="absolute flex items-center justify-center opacity-70"
+                    style={{
+                      inset: 6,
+                      boxShadow: isSelectedPlayerGoal ? '0 0 0 3px #facc15' : undefined,
+                      borderRadius: '4px',
+                    }}
+                  >
+                    <div className="text-lg" style={{ color: 'hsl(var(--sokoban-player))' }}>
+                      ★
+                    </div>
+                  </div>
+                )}
+
+                {/* Player goal hint when player is on it */}
+                {cellIsPlayerGoal && cellIsPlayer && (
+                  <div
+                    className="absolute flex items-center justify-center pointer-events-none"
+                    style={{
+                      inset: 0,
+                      zIndex: 10,
+                    }}
+                  >
+                    <div
+                      className="text-[10px] font-bold"
+                      style={{ color: 'white', textShadow: '0 0 2px black' }}
+                    >
+                      ★
+                    </div>
+                  </div>
                 )}
 
                 {/* Goal hint when covered by player */}

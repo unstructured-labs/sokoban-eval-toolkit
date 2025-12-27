@@ -16,6 +16,7 @@ export interface SokobanLevel {
   playerStart: Position
   boxStarts: Position[]
   goals: Position[]
+  playerGoal?: Position // Optional goal location the player must reach
   difficulty: Difficulty
   fileSource: string
   puzzleNumber: number
