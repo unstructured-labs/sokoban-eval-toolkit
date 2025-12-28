@@ -45,6 +45,7 @@ interface AIPanelProps {
   onReset: () => void
   disabled?: boolean
   onInferenceTimeChange?: (timeMs: number | null) => void
+  isVariantRules?: boolean
 }
 
 type PlannedMoveStatus = 'pending' | 'executing' | 'success' | 'failed'
@@ -61,9 +62,18 @@ export function AIPanel({
   onReset,
   disabled = false,
   onInferenceTimeChange,
+  isVariantRules = false,
 }: AIPanelProps) {
   const [model, setModel] = useState(DEFAULT_MODEL)
-  const [promptOptions, setPromptOptions] = useState<PromptOptions>(DEFAULT_PROMPT_OPTIONS)
+  const [promptOptions, setPromptOptions] = useState<PromptOptions>({
+    ...DEFAULT_PROMPT_OPTIONS,
+    variantRules: isVariantRules,
+  })
+
+  // Sync variantRules prop with promptOptions
+  useEffect(() => {
+    setPromptOptions((prev) => ({ ...prev, variantRules: isVariantRules }))
+  }, [isVariantRules])
 
   const [isRunning, setIsRunning] = useState(false)
   const [plannedMoves, setPlannedMoves] = useState<ExtendedPlannedMove[]>([])

@@ -14,6 +14,7 @@ interface ControlPanelProps {
   aiInferenceTimeMs?: number | null
   onRunSolution?: (moves: MoveDirection[]) => void
   isPlayingSolution?: boolean
+  isVariantRules?: boolean
 }
 
 export function ControlPanel({
@@ -24,6 +25,7 @@ export function ControlPanel({
   aiInferenceTimeMs,
   onRunSolution,
   isPlayingSolution = false,
+  isVariantRules = false,
 }: ControlPanelProps) {
   const canUndo = state !== null && state.moveHistory.length > 0
 
@@ -50,11 +52,12 @@ export function ControlPanel({
   const hasDeadlock = state ? isSimpleDeadlock(state) : false
 
   // Look up solution for the original level (cache first, then solver)
+  // Skip when variant rules are enabled (solver doesn't apply)
   const [solution, setSolution] = useState<SolutionResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (!state?.level) {
+    if (!state?.level || isVariantRules) {
       setSolution(null)
       return
     }
@@ -63,7 +66,7 @@ export function ControlPanel({
     getSolution(state.level)
       .then(setSolution)
       .finally(() => setIsLoading(false))
-  }, [state?.level])
+  }, [state?.level, isVariantRules])
 
   // Calculate remaining moves from original solution
   const remainingMoves = useMemo(() => {
@@ -104,9 +107,11 @@ export function ControlPanel({
       </div>
 
       {/* Solution info */}
-      {state && !state.isWon && (
+      {state && !state.isWon && !state.isLost && (
         <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
-          {isLoading ? (
+          {isVariantRules ? (
+            <span className="text-muted-foreground/60">Solver Disabled</span>
+          ) : isLoading ? (
             <span>Solving...</span>
           ) : solution?.found ? (
             <>

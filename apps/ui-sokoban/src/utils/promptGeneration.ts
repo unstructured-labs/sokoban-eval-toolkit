@@ -69,6 +69,7 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
 
   // Use cipher symbols if enabled
   const useCipher = options.cipherSymbols
+  const isVariant = options.variantRules
 
   // Symbol definitions based on mode
   const symbols = useCipher
@@ -98,32 +99,51 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   // Check if there's a player goal
   const hasPlayerGoal = !!state.level.playerGoal
 
-  // Header
-  parts.push('# Sokoban Puzzle')
-  parts.push('')
-  if (hasPlayerGoal) {
+  // Header - different for variant rules
+  if (isVariant) {
+    parts.push('# Sokoban Variant Puzzle - Trap Mode')
+    parts.push('')
     parts.push(
-      'This is a Sokoban-like game with a modification. In addition to the normal rules, the final goal is to move the player onto the Player Goal location, which is a specific location on the board.',
+      'This is a variant Sokoban puzzle with special trap mechanics. The goal is to navigate the player to the Player Goal while avoiding or neutralizing traps.',
     )
     parts.push('')
-    // Check if there are more boxes than goals
-    const numBoxes = state.boxes.length
-    const numGoals = state.level.goals.length
-    if (numBoxes > numGoals) {
+    parts.push('## Key Differences from Standard Sokoban:')
+    parts.push(`- **Traps**: What normally appear as goals (${symbols.goal}) are now deadly traps`)
+    parts.push('- **Player cannot walk on traps**: Moving onto a trap causes immediate loss')
+    parts.push(
+      `- **Neutralize traps**: Push a box (${symbols.box}) onto a trap to neutralize it - both the box and trap disappear, leaving a safe floor that the player can NOW walk over`,
+    )
+    parts.push(
+      `- **Win condition**: Reach the Player Goal (${symbols.playerGoal}) - boxes do NOT need to be on any locations`,
+    )
+    parts.push('')
+  } else {
+    parts.push('# Sokoban Puzzle')
+    parts.push('')
+    if (hasPlayerGoal) {
       parts.push(
-        `Note: There are more boxes (${numBoxes}) than box goals (${numGoals}). You must cover all available box goals with boxes, leaving ${numBoxes - numGoals} box(es) not on goals. Then move the player to the Player Goal.`,
+        'This is a Sokoban-like game with a modification. In addition to the normal rules, the final goal is to move the player onto the Player Goal location, which is a specific location on the board.',
       )
       parts.push('')
+      // Check if there are more boxes than goals
+      const numBoxes = state.boxes.length
+      const numGoals = state.level.goals.length
+      if (numBoxes > numGoals) {
+        parts.push(
+          `Note: There are more boxes (${numBoxes}) than box goals (${numGoals}). You must cover all available box goals with boxes, leaving ${numBoxes - numGoals} box(es) not on goals. Then move the player to the Player Goal.`,
+        )
+        parts.push('')
+      }
+      parts.push(
+        `Cover all box goals (${symbols.goal}) with boxes (${symbols.box}), AND move the player (${symbols.player}) to the Player Goal (${symbols.playerGoal}) to win.`,
+      )
+    } else {
+      parts.push(
+        `You are solving a Sokoban puzzle. Push all boxes (${symbols.box}) onto goals (${symbols.goal}) to win.`,
+      )
     }
-    parts.push(
-      `Cover all box goals (${symbols.goal}) with boxes (${symbols.box}), AND move the player (${symbols.player}) to the Player Goal (${symbols.playerGoal}) to win.`,
-    )
-  } else {
-    parts.push(
-      `You are solving a Sokoban puzzle. Push all boxes (${symbols.box}) onto goals (${symbols.goal}) to win.`,
-    )
+    parts.push('')
   }
-  parts.push('')
 
   // Rules
   parts.push('## Rules')
@@ -132,7 +152,18 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   parts.push('- You cannot pull boxes')
   parts.push('- You cannot push more than one box at a time')
   parts.push(`- Walls (${symbols.wall}) are impassable`)
-  if (hasPlayerGoal) {
+
+  if (isVariant) {
+    parts.push(
+      `- **DANGER**: Traps (${symbols.goal}) are deadly - the player CANNOT move onto them`,
+    )
+    parts.push(
+      '- Push a box onto a trap to neutralize it (both box and trap disappear, leaving a safe floor that the player can NOW walk over)',
+    )
+    parts.push(
+      `- The puzzle is solved when the player reaches the Player Goal (${symbols.playerGoal})`,
+    )
+  } else if (hasPlayerGoal) {
     const numBoxes = state.boxes.length
     const numGoals = state.level.goals.length
     if (numBoxes > numGoals) {
@@ -159,9 +190,14 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
     parts.push(`- ${symbols.wall} = Wall`)
     parts.push(`- ${symbols.player} = Player`)
     parts.push(`- ${symbols.box} = Box`)
-    parts.push(`- ${symbols.goal} = Goal (for boxes)`)
-    parts.push(`- ${symbols.boxOnGoal} = Box on Goal`)
-    parts.push(`- ${symbols.playerOnGoal} = Player on Goal`)
+    if (isVariant) {
+      parts.push(`- ${symbols.goal} = Trap (DEADLY - do not step on!)`)
+      parts.push(`- ${symbols.boxOnGoal} = Box on Trap (will neutralize if pushed)`)
+    } else {
+      parts.push(`- ${symbols.goal} = Goal (for boxes)`)
+      parts.push(`- ${symbols.boxOnGoal} = Box on Goal`)
+      parts.push(`- ${symbols.playerOnGoal} = Player on Goal`)
+    }
     parts.push(`- ${symbols.floor} = Floor`)
     if (hasPlayerGoal) {
       parts.push(`- ${symbols.playerGoal} = Player Goal (destination for player)`)
@@ -190,10 +226,23 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   parts.push('')
 
   // Progress info
-  const boxesOnGoals = state.boxes.filter(
-    (box) => state.level.terrain[box.y]?.[box.x] === 'goal',
-  ).length
-  parts.push(`## Progress: ${boxesOnGoals}/${state.boxes.length} boxes on goals`)
+  if (isVariant) {
+    // Count traps (goals not yet neutralized)
+    const totalTraps = state.level.goals.length
+    const neutralizedTraps = state.neutralizedTraps.length
+    const remainingTraps = totalTraps - neutralizedTraps
+    parts.push('## Progress')
+    parts.push(`- Traps remaining: ${remainingTraps}/${totalTraps}`)
+    parts.push(`- Boxes remaining: ${state.boxes.length}`)
+    parts.push(
+      `- Player position: (${state.playerPos.x},${state.playerPos.y}) | Target: (${state.level.playerGoal?.x ?? '?'},${state.level.playerGoal?.y ?? '?'})`,
+    )
+  } else {
+    const boxesOnGoals = state.boxes.filter(
+      (box) => state.level.terrain[box.y]?.[box.x] === 'goal',
+    ).length
+    parts.push(`## Progress: ${boxesOnGoals}/${state.boxes.length} boxes on goals`)
+  }
   parts.push('')
 
   // Important note about code
@@ -332,4 +381,5 @@ export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {
   executionMode: 'fullSolution',
   cipherSymbols: false,
   coordinateLocations: false,
+  variantRules: false,
 }

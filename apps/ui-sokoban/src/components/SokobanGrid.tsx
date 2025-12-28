@@ -186,11 +186,13 @@ export function SokobanGrid({
                     className="absolute flex items-center justify-center opacity-70"
                     style={{
                       inset: 6,
-                      boxShadow: isSelectedPlayerGoal ? '0 0 0 3px #facc15' : undefined,
+                      boxShadow: isSelectedPlayerGoal
+                        ? '0 0 0 3px hsl(var(--sokoban-player-goal))'
+                        : undefined,
                       borderRadius: '4px',
                     }}
                   >
-                    <div className="text-lg" style={{ color: 'hsl(var(--sokoban-player))' }}>
+                    <div className="text-lg" style={{ color: 'hsl(var(--sokoban-player-goal))' }}>
                       ★
                     </div>
                   </div>

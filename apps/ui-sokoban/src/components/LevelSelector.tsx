@@ -60,6 +60,8 @@ interface LevelSelectorProps {
   currentLevel?: SokobanLevel | null
   isEditing?: boolean
   onEditingChange?: (editing: boolean) => void
+  isVariantRules?: boolean
+  onVariantRulesChange?: (enabled: boolean) => void
   onFlipBoard?: () => void
   onRotateBoard?: () => void
 }
@@ -70,6 +72,8 @@ export function LevelSelector({
   currentLevel,
   isEditing = false,
   onEditingChange,
+  isVariantRules = false,
+  onVariantRulesChange,
   onFlipBoard,
   onRotateBoard,
 }: LevelSelectorProps) {
@@ -467,6 +471,31 @@ export function LevelSelector({
             disabled={disabled || !currentLevel}
           />
         </div>
+
+        {/* Enable Variant Rules toggle */}
+        <div className="flex items-center justify-between">
+          <Label htmlFor="variant-rules" className="text-xs text-muted-foreground cursor-pointer">
+            Enable Variant Rules
+          </Label>
+          <Switch
+            id="variant-rules"
+            checked={isVariantRules}
+            onCheckedChange={onVariantRulesChange}
+            disabled={disabled || !currentLevel}
+          />
+        </div>
+
+        {/* Variant rules info */}
+        {isVariantRules && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 text-[10px] text-amber-600 dark:text-amber-400">
+            <div className="font-medium mb-1">Variant Mode Active</div>
+            <ul className="space-y-0.5 text-amber-500/80">
+              <li>• Goals become traps (deadly to player)</li>
+              <li>• Push boxes onto traps to neutralize them</li>
+              <li>• Reach the Player Goal to win</li>
+            </ul>
+          </div>
+        )}
 
         {/* Flip and Rotate buttons */}
         <div className="flex gap-2">

@@ -19,6 +19,8 @@ export function initializeGame(level: SokobanLevel): GameState {
     boxes: level.boxStarts.map((b) => ({ ...b })),
     moveHistory: [],
     isWon: false,
+    isLost: false,
+    neutralizedTraps: [],
     moveCount: 0,
     pushCount: 0,
     startTime: null,
@@ -48,6 +50,19 @@ function hasBox(pos: Position, boxes: Position[]): number {
 }
 
 /**
+ * Check if a position is a trap (goal that hasn't been neutralized).
+ * Only applies in variant mode.
+ */
+function isTrap(pos: Position, level: SokobanLevel, neutralizedTraps: Position[]): boolean {
+  // Goals are traps in variant mode
+  if (level.terrain[pos.y]?.[pos.x] !== 'goal') {
+    return false
+  }
+  // Check if this trap has been neutralized
+  return !neutralizedTraps.some((t) => t.x === pos.x && t.y === pos.y)
+}
+
+/**
  * Get the new position after moving in a direction.
  */
 function getNewPosition(pos: Position, direction: MoveDirection): Position {
@@ -61,9 +76,14 @@ function getNewPosition(pos: Position, direction: MoveDirection): Position {
 /**
  * Validate if a move is legal.
  * Returns detailed information about the move including if it's a push.
+ * @param variantRules - If true, goals become traps that kill the player
  */
-export function validateMove(state: GameState, direction: MoveDirection): MoveValidationResult {
-  const { level, playerPos, boxes } = state
+export function validateMove(
+  state: GameState,
+  direction: MoveDirection,
+  variantRules = false,
+): MoveValidationResult {
+  const { level, playerPos, boxes, neutralizedTraps } = state
   const newPlayerPos = getNewPosition(playerPos, direction)
 
   // Check if new position is in bounds
@@ -80,7 +100,11 @@ export function validateMove(state: GameState, direction: MoveDirection): MoveVa
   const boxIndex = hasBox(newPlayerPos, boxes)
 
   if (boxIndex === -1) {
-    // No box, simple move
+    // No box, simple move - but check for trap in variant mode
+    if (variantRules && isTrap(newPlayerPos, level, neutralizedTraps)) {
+      // Player is trying to move onto a trap - this is valid but will cause loss
+      return { valid: true, isPush: false, newPlayerPos, error: 'Player stepped on trap' }
+    }
     return { valid: true, isPush: false, newPlayerPos }
   }
 
@@ -102,6 +126,9 @@ export function validateMove(state: GameState, direction: MoveDirection): MoveVa
     return { valid: false, isPush: true, newPlayerPos, error: 'Cannot push box into another box' }
   }
 
+  // Check if pushing box onto a trap (neutralizes it in variant mode)
+  const neutralizesTrap = variantRules && isTrap(newBoxPos, level, neutralizedTraps)
+
   // Valid push
   return {
     valid: true,
@@ -109,31 +136,46 @@ export function validateMove(state: GameState, direction: MoveDirection): MoveVa
     newPlayerPos,
     newBoxPos,
     pushedBoxIndex: boxIndex,
+    neutralizesTrap,
   }
 }
 
 /**
  * Execute a move and return the new game state.
  * Returns null if the move is invalid.
+ * @param variantRules - If true, goals become traps
  */
 export function executeMove(
   state: GameState,
   direction: MoveDirection,
   source: 'human' | 'ai' = 'human',
+  variantRules = false,
 ): GameState | null {
-  const validation = validateMove(state, direction)
+  const validation = validateMove(state, direction, variantRules)
 
   if (!validation.valid) {
     return null
   }
 
-  const newBoxes = state.boxes.map((b) => ({ ...b }))
+  let newBoxes = state.boxes.map((b) => ({ ...b }))
   let previousBoxPos: Position | undefined
+  let neutralizedTrap: Position | undefined
+  let newNeutralizedTraps = [...state.neutralizedTraps]
 
-  // If it's a push, move the box
+  // If it's a push, handle the box
   if (validation.isPush && validation.pushedBoxIndex !== undefined && validation.newBoxPos) {
     previousBoxPos = { ...newBoxes[validation.pushedBoxIndex] }
-    newBoxes[validation.pushedBoxIndex] = validation.newBoxPos
+
+    // Check if pushing onto a trap (in variant mode)
+    if (validation.neutralizesTrap) {
+      // Box and trap both disappear - remove the box
+      neutralizedTrap = validation.newBoxPos
+      newNeutralizedTraps = [...newNeutralizedTraps, validation.newBoxPos]
+      newBoxes = newBoxes.filter((_, i) => i !== validation.pushedBoxIndex)
+    } else {
+      // Normal push - move the box
+      newBoxes[validation.pushedBoxIndex] = validation.newBoxPos
+    }
   }
 
   // Create move record
@@ -143,6 +185,7 @@ export function executeMove(
     wasPush: validation.isPush,
     previousPlayerPos: { ...state.playerPos },
     previousBoxPos,
+    neutralizedTrap,
     source,
     timestamp: Date.now(),
   }
@@ -152,14 +195,22 @@ export function executeMove(
     ...state,
     playerPos: validation.newPlayerPos,
     boxes: newBoxes,
+    neutralizedTraps: newNeutralizedTraps,
     moveHistory: [...state.moveHistory, moveRecord],
     moveCount: state.moveCount + 1,
     pushCount: state.pushCount + (validation.isPush ? 1 : 0),
     startTime: state.startTime ?? Date.now(),
   }
 
+  // Check for loss in variant mode (player stepped on trap)
+  if (variantRules && validation.error === 'Player stepped on trap') {
+    newState.isLost = true
+    newState.endTime = Date.now()
+    return newState
+  }
+
   // Check win condition
-  newState.isWon = checkWin(newState)
+  newState.isWon = checkWin(newState, variantRules)
   if (newState.isWon && !newState.endTime) {
     newState.endTime = Date.now()
   }
@@ -177,17 +228,28 @@ export function undoMove(state: GameState): GameState {
   }
 
   const lastMove = state.moveHistory[state.moveHistory.length - 1]
-  const newBoxes = state.boxes.map((b) => ({ ...b }))
+  let newBoxes = state.boxes.map((b) => ({ ...b }))
+  let newNeutralizedTraps = [...state.neutralizedTraps]
 
   // If last move was a push, restore box position
   if (lastMove.wasPush && lastMove.previousBoxPos) {
-    // Box was at previousBoxPos, then pushed one step in direction
-    // So box is now at previousBoxPos + direction
-    const pushedBoxCurrentPos = getNewPosition(lastMove.previousBoxPos, lastMove.direction)
-    const boxIndex = hasBox(pushedBoxCurrentPos, newBoxes)
+    if (lastMove.neutralizedTrap) {
+      // Box was pushed onto a trap and disappeared - restore the box at its previous position
+      newBoxes = [...newBoxes, lastMove.previousBoxPos]
+      // Remove the trap from neutralized list
+      const trapPos = lastMove.neutralizedTrap
+      newNeutralizedTraps = newNeutralizedTraps.filter(
+        (t) => t.x !== trapPos.x || t.y !== trapPos.y,
+      )
+    } else {
+      // Normal push - box was at previousBoxPos, then pushed one step in direction
+      // So box is now at previousBoxPos + direction
+      const pushedBoxCurrentPos = getNewPosition(lastMove.previousBoxPos, lastMove.direction)
+      const boxIndex = hasBox(pushedBoxCurrentPos, newBoxes)
 
-    if (boxIndex !== -1) {
-      newBoxes[boxIndex] = lastMove.previousBoxPos
+      if (boxIndex !== -1) {
+        newBoxes[boxIndex] = lastMove.previousBoxPos
+      }
     }
   }
 
@@ -195,21 +257,33 @@ export function undoMove(state: GameState): GameState {
     ...state,
     playerPos: lastMove.previousPlayerPos,
     boxes: newBoxes,
+    neutralizedTraps: newNeutralizedTraps,
     moveHistory: state.moveHistory.slice(0, -1),
     moveCount: state.moveCount - 1,
     pushCount: state.pushCount - (lastMove.wasPush ? 1 : 0),
     isWon: false,
+    isLost: false,
     endTime: null,
   }
 }
 
 /**
- * Check if all boxes are on goals.
+ * Check if the win condition is met.
+ * In standard mode: all boxes must be on goals.
+ * In variant mode: player must be on player goal (all traps should be neutralized to get there).
  */
-export function checkWin(state: GameState): boolean {
-  const { level, boxes } = state
+export function checkWin(state: GameState, variantRules = false): boolean {
+  const { level, playerPos, boxes } = state
 
-  // Every box must be on a goal
+  if (variantRules) {
+    // Variant mode: player must reach the player goal
+    if (!level.playerGoal) {
+      return false // No player goal set, can't win in variant mode
+    }
+    return playerPos.x === level.playerGoal.x && playerPos.y === level.playerGoal.y
+  }
+
+  // Standard mode: every box must be on a goal
   return boxes.every((box) => level.terrain[box.y]?.[box.x] === 'goal')
 }
 

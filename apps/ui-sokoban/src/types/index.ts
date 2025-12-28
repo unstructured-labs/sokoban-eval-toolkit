@@ -43,6 +43,7 @@ export interface MoveRecord {
   wasPush: boolean
   previousPlayerPos: Position
   previousBoxPos?: Position // only if was a push
+  neutralizedTrap?: Position // if a box was pushed onto a trap (for variant rules undo)
   source: 'human' | 'ai'
   timestamp: number
 }
@@ -54,6 +55,8 @@ export interface GameState {
   boxes: Position[]
   moveHistory: MoveRecord[]
   isWon: boolean
+  isLost: boolean // For variant rules: player stepped on a trap
+  neutralizedTraps: Position[] // Traps that have been neutralized by pushing boxes onto them
   moveCount: number
   pushCount: number
   startTime: number | null
@@ -67,6 +70,7 @@ export interface MoveValidationResult {
   newPlayerPos: Position
   newBoxPos?: Position
   pushedBoxIndex?: number
+  neutralizesTrap?: boolean // For variant rules: box was pushed onto a trap
   error?: string
 }
 
@@ -88,6 +92,7 @@ export interface PromptOptions {
   executionMode: 'fullSolution' | 'moveByMove'
   cipherSymbols: boolean
   coordinateLocations: boolean
+  variantRules: boolean // Goals become traps, player must reach player goal
 }
 
 // AI session metrics
