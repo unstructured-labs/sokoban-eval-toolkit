@@ -62,6 +62,8 @@ interface LevelSelectorProps {
   onEditingChange?: (editing: boolean) => void
   isVariantRules?: boolean
   onVariantRulesChange?: (enabled: boolean) => void
+  isCustomPushingRules?: boolean
+  onCustomPushingRulesChange?: (enabled: boolean) => void
   onFlipBoard?: () => void
   onRotateBoard?: () => void
 }
@@ -74,6 +76,8 @@ export function LevelSelector({
   onEditingChange,
   isVariantRules = false,
   onVariantRulesChange,
+  isCustomPushingRules = false,
+  onCustomPushingRulesChange,
   onFlipBoard,
   onRotateBoard,
 }: LevelSelectorProps) {
@@ -481,6 +485,22 @@ export function LevelSelector({
             id="variant-rules"
             checked={isVariantRules}
             onCheckedChange={onVariantRulesChange}
+            disabled={disabled || !currentLevel}
+          />
+        </div>
+
+        {/* Enable Custom Pushing Rules toggle */}
+        <div className="flex items-center justify-between">
+          <Label
+            htmlFor="custom-pushing-rules"
+            className="text-xs text-muted-foreground cursor-pointer"
+          >
+            Enable Custom Pushing
+          </Label>
+          <Switch
+            id="custom-pushing-rules"
+            checked={isCustomPushingRules}
+            onCheckedChange={onCustomPushingRulesChange}
             disabled={disabled || !currentLevel}
           />
         </div>

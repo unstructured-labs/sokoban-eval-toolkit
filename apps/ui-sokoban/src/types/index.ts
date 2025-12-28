@@ -42,7 +42,8 @@ export interface MoveRecord {
   direction: MoveDirection
   wasPush: boolean
   previousPlayerPos: Position
-  previousBoxPos?: Position // only if was a push
+  previousBoxPos?: Position // only if was a push (single box)
+  previousBoxPositions?: Position[] // for multi-box push (custom pushing rules)
   neutralizedTrap?: Position // if a box was pushed onto a trap (for variant rules undo)
   source: 'human' | 'ai'
   timestamp: number
@@ -72,6 +73,9 @@ export interface MoveValidationResult {
   pushedBoxIndex?: number
   neutralizesTrap?: boolean // For variant rules: box was pushed onto a trap
   error?: string
+  // For custom pushing rules: multiple boxes pushed in sequence
+  pushedBoxIndices?: number[]
+  newBoxPositions?: Position[]
 }
 
 // Solution validation result
@@ -93,6 +97,7 @@ export interface PromptOptions {
   cipherSymbols: boolean
   coordinateLocations: boolean
   variantRules: boolean // Goals become traps, player must reach player goal
+  customPushingRules: boolean // Allow pushing multiple boxes in a row
 }
 
 // AI session metrics

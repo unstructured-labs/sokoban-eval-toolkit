@@ -39,6 +39,7 @@ export function SokobanGame() {
   const [isPlayingSolution, setIsPlayingSolution] = useState(false)
   const [isEditing, setIsEditing] = useState(true)
   const [isVariantRules, setIsVariantRules] = useState(false)
+  const [isCustomPushingRules, setIsCustomPushingRules] = useState(false)
   const [selectedEntity, setSelectedEntity] = useState<{
     type: 'player' | 'box' | 'goal' | 'player-goal'
     index?: number
@@ -81,14 +82,20 @@ export function SokobanGame() {
     (direction: MoveDirection): boolean => {
       if (!gameState || gameState.isWon || gameState.isLost) return false
 
-      const newState = executeMove(gameState, direction, 'human', isVariantRules)
+      const newState = executeMove(
+        gameState,
+        direction,
+        'human',
+        isVariantRules,
+        isCustomPushingRules,
+      )
       if (newState) {
         setGameState(newState)
         return true
       }
       return false
     },
-    [gameState, isVariantRules],
+    [gameState, isVariantRules, isCustomPushingRules],
   )
 
   // Handle AI move (returns true if valid)
@@ -96,14 +103,14 @@ export function SokobanGame() {
     (direction: MoveDirection): boolean => {
       if (!gameState || gameState.isWon || gameState.isLost) return false
 
-      const newState = executeMove(gameState, direction, 'ai', isVariantRules)
+      const newState = executeMove(gameState, direction, 'ai', isVariantRules, isCustomPushingRules)
       if (newState) {
         setGameState(newState)
         return true
       }
       return false
     },
-    [gameState, isVariantRules],
+    [gameState, isVariantRules, isCustomPushingRules],
   )
 
   // Handle running solution - just stores the moves and starts playback
@@ -150,7 +157,7 @@ export function SokobanGame() {
 
     // Schedule the next move
     solutionTimeoutRef.current = setTimeout(() => {
-      const newState = executeMove(gameState, direction, 'ai', isVariantRules)
+      const newState = executeMove(gameState, direction, 'ai', isVariantRules, isCustomPushingRules)
       if (newState) {
         solutionIndexRef.current = index + 1
         setGameState(newState)
@@ -166,7 +173,7 @@ export function SokobanGame() {
         solutionTimeoutRef.current = null
       }
     }
-  }, [isPlayingSolution, gameState, isVariantRules])
+  }, [isPlayingSolution, gameState, isVariantRules, isCustomPushingRules])
 
   // Handle undo
   const handleUndo = useCallback(() => {
@@ -803,6 +810,8 @@ export function SokobanGame() {
               onEditingChange={setIsEditing}
               isVariantRules={isVariantRules}
               onVariantRulesChange={setIsVariantRules}
+              isCustomPushingRules={isCustomPushingRules}
+              onCustomPushingRulesChange={setIsCustomPushingRules}
               onFlipBoard={handleFlipBoard}
               onRotateBoard={handleRotateBoard}
             />
@@ -1038,6 +1047,7 @@ export function SokobanGame() {
           disabled={!gameState}
           onInferenceTimeChange={setAiInferenceTimeMs}
           isVariantRules={isVariantRules}
+          isCustomPushingRules={isCustomPushingRules}
         />
       </div>
     </div>

@@ -70,6 +70,7 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   // Use cipher symbols if enabled
   const useCipher = options.cipherSymbols
   const isVariant = options.variantRules
+  const isCustomPushing = options.customPushingRules
 
   // Symbol definitions based on mode
   const symbols = useCipher
@@ -158,7 +159,22 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   parts.push('- You can move UP, DOWN, LEFT, or RIGHT')
   parts.push('- You can push a box by walking into it (if the space behind it is free)')
   parts.push('- You cannot pull boxes')
-  parts.push('- You cannot push more than one box at a time')
+
+  // Custom pushing rules explanation
+  if (isCustomPushing) {
+    parts.push(
+      '- **Custom Pushing**: You CAN push multiple boxes at once if they are aligned in a row',
+    )
+    parts.push(
+      '  - When boxes are consecutive in the push direction, pushing the first box pushes ALL of them',
+    )
+    parts.push('  - The last box in the chain must have an empty space to move into')
+    parts.push('  - Example: Player pushes RIGHT into [Box][Box][Empty] → [Empty][Box][Box]')
+    parts.push('  - You still cannot push boxes through walls')
+  } else {
+    parts.push('- You cannot push more than one box at a time')
+  }
+
   parts.push(`- Walls (${symbols.wall}) are impassable`)
 
   if (isVariant) {
@@ -390,4 +406,5 @@ export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {
   cipherSymbols: false,
   coordinateLocations: false,
   variantRules: false,
+  customPushingRules: false,
 }
