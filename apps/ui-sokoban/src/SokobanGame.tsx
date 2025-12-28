@@ -38,16 +38,14 @@ export function SokobanGame() {
   const initialLoadDone = useRef(false)
   const [isPlayingSolution, setIsPlayingSolution] = useState(false)
   const [isEditing, setIsEditing] = useState(true)
-  const [isVariantRules, setIsVariantRules] = useState(false)
-  const [isCustomPushingRules, setIsCustomPushingRules] = useState(false)
   const [selectedEntity, setSelectedEntity] = useState<{
-    type: 'player' | 'box' | 'goal' | 'player-goal'
+    type: 'player' | 'box' | 'goal'
     index?: number
     x: number
     y: number
   } | null>(null)
   const [isDraggingWalls, setIsDraggingWalls] = useState(false)
-  const [addMode, setAddMode] = useState<'goal' | 'box' | 'player-goal' | 'remove' | null>(null)
+  const [addMode, setAddMode] = useState<'goal' | 'box' | 'remove' | null>(null)
   const solutionMovesRef = useRef<MoveDirection[]>([])
   const solutionIndexRef = useRef(0)
   const solutionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -80,37 +78,31 @@ export function SokobanGame() {
   // Handle move (returns true if valid)
   const handleMove = useCallback(
     (direction: MoveDirection): boolean => {
-      if (!gameState || gameState.isWon || gameState.isLost) return false
+      if (!gameState || gameState.isWon) return false
 
-      const newState = executeMove(
-        gameState,
-        direction,
-        'human',
-        isVariantRules,
-        isCustomPushingRules,
-      )
+      const newState = executeMove(gameState, direction, 'human')
       if (newState) {
         setGameState(newState)
         return true
       }
       return false
     },
-    [gameState, isVariantRules, isCustomPushingRules],
+    [gameState],
   )
 
   // Handle AI move (returns true if valid)
   const handleAIMove = useCallback(
     (direction: MoveDirection): boolean => {
-      if (!gameState || gameState.isWon || gameState.isLost) return false
+      if (!gameState || gameState.isWon) return false
 
-      const newState = executeMove(gameState, direction, 'ai', isVariantRules, isCustomPushingRules)
+      const newState = executeMove(gameState, direction, 'ai')
       if (newState) {
         setGameState(newState)
         return true
       }
       return false
     },
-    [gameState, isVariantRules, isCustomPushingRules],
+    [gameState],
   )
 
   // Handle running solution - just stores the moves and starts playback
@@ -144,7 +136,7 @@ export function SokobanGame() {
     const index = solutionIndexRef.current
 
     // Check if we're done
-    if (index >= moves.length || gameState.isWon || gameState.isLost) {
+    if (index >= moves.length || gameState.isWon) {
       setIsPlayingSolution(false)
       return
     }
@@ -157,7 +149,7 @@ export function SokobanGame() {
 
     // Schedule the next move
     solutionTimeoutRef.current = setTimeout(() => {
-      const newState = executeMove(gameState, direction, 'ai', isVariantRules, isCustomPushingRules)
+      const newState = executeMove(gameState, direction, 'ai')
       if (newState) {
         solutionIndexRef.current = index + 1
         setGameState(newState)
@@ -173,7 +165,7 @@ export function SokobanGame() {
         solutionTimeoutRef.current = null
       }
     }
-  }, [isPlayingSolution, gameState, isVariantRules, isCustomPushingRules])
+  }, [isPlayingSolution, gameState])
 
   // Handle undo
   const handleUndo = useCallback(() => {
@@ -231,7 +223,6 @@ export function SokobanGame() {
       playerStart: gameState.playerPos,
       boxStarts: gameState.boxes,
       goals,
-      playerGoal: gameState.level.playerGoal,
     }
 
     saveLayout(layout)
@@ -254,7 +245,6 @@ export function SokobanGame() {
         playerStart: layout.playerStart,
         boxStarts: layout.boxStarts,
         goals: layout.goals,
-        playerGoal: layout.playerGoal,
         difficulty: layout.difficulty,
         fileSource: 'saved',
         puzzleNumber: 0,
@@ -483,8 +473,6 @@ export function SokobanGame() {
       const isBoxHere = boxIndex !== -1
       const isGoalHere = currentTerrain === 'goal'
       const isWall = currentTerrain === 'wall'
-      const isPlayerGoalHere =
-        gameState.level.playerGoal?.x === x && gameState.level.playerGoal?.y === y
 
       // Handle add mode
       if (addMode) {
@@ -514,20 +502,6 @@ export function SokobanGame() {
             const newLevel = {
               ...gameState.level,
               terrain: newTerrainGrid,
-            }
-            setGameState({
-              ...gameState,
-              level: newLevel,
-            })
-            setCurrentLevel(newLevel)
-            return
-          }
-
-          // Remove player goal if present
-          if (isPlayerGoalHere) {
-            const newLevel = {
-              ...gameState.level,
-              playerGoal: undefined,
             }
             setGameState({
               ...gameState,
@@ -589,35 +563,15 @@ export function SokobanGame() {
             level: newLevel,
           })
           setCurrentLevel(newLevel)
-        } else if (addMode === 'player-goal') {
-          // Can't add player goal where one already exists
-          if (isPlayerGoalHere) return
-
-          // Set player goal (replaces any existing one since there can only be one)
-          const newLevel = {
-            ...gameState.level,
-            playerGoal: { x, y },
-          }
-
-          setGameState({
-            ...gameState,
-            level: newLevel,
-          })
-          setCurrentLevel(newLevel)
         }
 
         return
       }
 
-      // If clicking on player, box, goal, or player-goal - handle selection
-      if (
-        isPlayerHere ||
-        isBoxHere ||
-        (isGoalHere && !isPlayerHere && !isBoxHere) ||
-        (isPlayerGoalHere && !isPlayerHere)
-      ) {
-        // Determine what we clicked on (priority: player > box > goal > player-goal)
-        let clickedType: 'player' | 'box' | 'goal' | 'player-goal'
+      // If clicking on player, box, or goal - handle selection
+      if (isPlayerHere || isBoxHere || (isGoalHere && !isPlayerHere && !isBoxHere)) {
+        // Determine what we clicked on (priority: player > box > goal)
+        let clickedType: 'player' | 'box' | 'goal'
         let clickedIndex: number | undefined
 
         if (isPlayerHere) {
@@ -625,10 +579,8 @@ export function SokobanGame() {
         } else if (isBoxHere) {
           clickedType = 'box'
           clickedIndex = boxIndex
-        } else if (isGoalHere) {
-          clickedType = 'goal'
         } else {
-          clickedType = 'player-goal'
+          clickedType = 'goal'
         }
 
         // If same entity is already selected, deselect it
@@ -718,18 +670,6 @@ export function SokobanGame() {
             level: newLevel,
           })
           setCurrentLevel(newLevel)
-        } else if (selectedEntity.type === 'player-goal') {
-          // Move player goal to new position
-          const newLevel = {
-            ...gameState.level,
-            playerGoal: { x, y },
-          }
-
-          setGameState({
-            ...gameState,
-            level: newLevel,
-          })
-          setCurrentLevel(newLevel)
         }
 
         // Clear selection after moving
@@ -808,10 +748,6 @@ export function SokobanGame() {
               currentLevel={currentLevel}
               isEditing={isEditing}
               onEditingChange={setIsEditing}
-              isVariantRules={isVariantRules}
-              onVariantRulesChange={setIsVariantRules}
-              isCustomPushingRules={isCustomPushingRules}
-              onCustomPushingRulesChange={setIsCustomPushingRules}
               onFlipBoard={handleFlipBoard}
               onRotateBoard={handleRotateBoard}
             />
@@ -823,7 +759,6 @@ export function SokobanGame() {
               aiInferenceTimeMs={aiInferenceTimeMs}
               onRunSolution={handleRunSolution}
               isPlayingSolution={isPlayingSolution}
-              isVariantRules={isVariantRules}
             />
           </CardContent>
         </Card>
@@ -852,7 +787,7 @@ export function SokobanGame() {
                         : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
                     }`}
                   >
-                    + {isVariantRules ? 'Trap' : 'Goal'}
+                    + Goal
                   </button>
                   <button
                     type="button"
@@ -864,17 +799,6 @@ export function SokobanGame() {
                     }`}
                   >
                     + Box
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAddMode(addMode === 'player-goal' ? null : 'player-goal')}
-                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
-                      addMode === 'player-goal'
-                        ? 'bg-[hsl(var(--sokoban-player-goal))]/20 text-[hsl(var(--sokoban-player-goal))] border-[hsl(var(--sokoban-player-goal))]/50'
-                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
-                    }`}
-                  >
-                    + Player Goal
                   </button>
                   <button
                     type="button"
@@ -920,26 +844,10 @@ export function SokobanGame() {
             <div className="text-green-500 mb-2 animate-pulse font-medium">Puzzle Solved!</div>
           )}
 
-          {/* Loss message (variant mode) */}
-          {gameState?.isLost && (
-            <div className="text-red-500 mb-2 animate-pulse font-medium">
-              Stepped on a Trap! Press R to restart.
-            </div>
-          )}
-
           {/* Progress */}
-          {gameState && !gameState.isWon && !gameState.isLost && (
+          {gameState && !gameState.isWon && (
             <div className="text-xs text-muted-foreground mb-3">
-              {isVariantRules ? (
-                <>
-                  Traps: {gameState.neutralizedTraps.length}/{currentLevel?.goals.length ?? 0}{' '}
-                  neutralized | Boxes: {gameState.boxes.length}
-                </>
-              ) : (
-                <>
-                  Progress: {boxesOnGoals}/{totalBoxes} boxes on goals
-                </>
-              )}
+              Progress: {boxesOnGoals}/{totalBoxes} boxes on goals
             </div>
           )}
 
@@ -968,16 +876,7 @@ export function SokobanGame() {
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-full bg-[hsl(var(--sokoban-goal))] opacity-60" />
-              <span>{isVariantRules ? 'Trap' : 'Goal'}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div
-                className="w-3 h-3 flex items-center justify-center text-[hsl(var(--sokoban-player-goal))]"
-                style={{ fontSize: '10px' }}
-              >
-                ★
-              </div>
-              <span>Player Goal</span>
+              <span>Goal</span>
             </div>
           </div>
 
@@ -986,7 +885,7 @@ export function SokobanGame() {
             <div className="mt-3 bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-2 text-center">
               <div className="text-green-500 font-medium text-sm">
                 Completed in {gameState.moveHistory.length} moves
-                {currentLevel?.optimalMoves && !isVariantRules && (
+                {currentLevel?.optimalMoves && (
                   <span className="text-green-400/80"> (optimal: {currentLevel.optimalMoves})</span>
                 )}
               </div>
@@ -1013,18 +912,6 @@ export function SokobanGame() {
               )}
             </div>
           )}
-
-          {/* Variant mode info */}
-          {isVariantRules && (
-            <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-md px-4 py-2 text-[11px] text-amber-600 dark:text-amber-400 max-w-xs">
-              <div className="font-medium mb-1 text-center">Variant Mode Active</div>
-              <ul className="space-y-0.5 text-amber-500/80">
-                <li>• Goals become traps (deadly to player)</li>
-                <li>• Push boxes onto traps to neutralize them</li>
-                <li>• Reach the Player Goal to win</li>
-              </ul>
-            </div>
-          )}
         </div>
 
         {/* Bottom spacer with instructions */}
@@ -1046,8 +933,6 @@ export function SokobanGame() {
           onReset={handleReset}
           disabled={!gameState}
           onInferenceTimeChange={setAiInferenceTimeMs}
-          isVariantRules={isVariantRules}
-          isCustomPushingRules={isCustomPushingRules}
         />
       </div>
     </div>

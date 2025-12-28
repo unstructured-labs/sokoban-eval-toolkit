@@ -45,8 +45,6 @@ interface AIPanelProps {
   onReset: () => void
   disabled?: boolean
   onInferenceTimeChange?: (timeMs: number | null) => void
-  isVariantRules?: boolean
-  isCustomPushingRules?: boolean
 }
 
 type PlannedMoveStatus = 'pending' | 'executing' | 'success' | 'failed'
@@ -63,24 +61,11 @@ export function AIPanel({
   onReset,
   disabled = false,
   onInferenceTimeChange,
-  isVariantRules = false,
-  isCustomPushingRules = false,
 }: AIPanelProps) {
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [promptOptions, setPromptOptions] = useState<PromptOptions>({
     ...DEFAULT_PROMPT_OPTIONS,
-    variantRules: isVariantRules,
-    customPushingRules: isCustomPushingRules,
   })
-
-  // Sync variantRules and customPushingRules props with promptOptions
-  useEffect(() => {
-    setPromptOptions((prev) => ({
-      ...prev,
-      variantRules: isVariantRules,
-      customPushingRules: isCustomPushingRules,
-    }))
-  }, [isVariantRules, isCustomPushingRules])
 
   const [isRunning, setIsRunning] = useState(false)
   const [plannedMoves, setPlannedMoves] = useState<ExtendedPlannedMove[]>([])
@@ -155,14 +140,13 @@ export function AIPanel({
   }, [levelId, onInferenceTimeChange])
 
   // Load solution when level changes (cache first, then solver)
-  // Skip when variant rules are enabled (solver doesn't apply)
   useEffect(() => {
-    if (!state?.level || isVariantRules) {
+    if (!state?.level) {
       setCachedSolution(null)
       return
     }
     getSolution(state.level).then(setCachedSolution)
-  }, [state?.level, isVariantRules])
+  }, [state?.level])
 
   // Notify parent of inference time changes
   useEffect(() => {

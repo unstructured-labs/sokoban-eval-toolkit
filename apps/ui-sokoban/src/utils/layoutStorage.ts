@@ -14,7 +14,6 @@ export interface SavedLayout {
   playerStart: Position
   boxStarts: Position[]
   goals: Position[]
-  playerGoal?: Position // Optional goal location the player must reach
 }
 
 /**

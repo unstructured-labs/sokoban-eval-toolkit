@@ -138,12 +138,9 @@ export function gameStateToAscii(state: GameState): string {
       const isPlayer = playerPos.x === x && playerPos.y === y
       const isBox = boxes.some((b) => b.x === x && b.y === y)
       const isGoal = terrain === 'goal'
-      const isPlayerGoal = level.playerGoal?.x === x && level.playerGoal?.y === y
 
       if (terrain === 'wall') {
         line += '#'
-      } else if (isPlayer && isPlayerGoal) {
-        line += '!' // Player on player goal (win condition met)
       } else if (isPlayer && isGoal) {
         line += '+'
       } else if (isPlayer) {
@@ -152,8 +149,6 @@ export function gameStateToAscii(state: GameState): string {
         line += '*'
       } else if (isBox) {
         line += '$'
-      } else if (isPlayerGoal) {
-        line += '%' // Player goal (destination for player)
       } else if (isGoal) {
         line += '.'
       } else {
@@ -204,12 +199,9 @@ export function levelToAscii(level: SokobanLevel): string {
       const isPlayer = playerStart.x === x && playerStart.y === y
       const isBox = boxStarts.some((b) => b.x === x && b.y === y)
       const isGoal = terrain === 'goal'
-      const isPlayerGoal = level.playerGoal?.x === x && level.playerGoal?.y === y
 
       if (terrain === 'wall') {
         line += '#'
-      } else if (isPlayer && isPlayerGoal) {
-        line += '!' // Player on player goal
       } else if (isPlayer && isGoal) {
         line += '+'
       } else if (isPlayer) {
@@ -218,8 +210,6 @@ export function levelToAscii(level: SokobanLevel): string {
         line += '*'
       } else if (isBox) {
         line += '$'
-      } else if (isPlayerGoal) {
-        line += '%' // Player goal (destination for player)
       } else if (isGoal) {
         line += '.'
       } else {
