@@ -75,7 +75,7 @@ function createLevelFromAscii(ascii: string, id = 'test'): SokobanLevel {
     playerStart,
     boxStarts,
     goals,
-    difficulty: 'easy',
+    difficulty: 'eval-easy',
     fileSource: 'test',
     puzzleNumber: 1,
   }

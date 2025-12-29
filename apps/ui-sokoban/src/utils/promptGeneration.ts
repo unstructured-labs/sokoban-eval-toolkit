@@ -13,30 +13,37 @@ const CIPHER_MAP = {
 } as const
 
 /**
- * Extract wall positions from the game state terrain.
+ * Convert x,y coordinates to r1c4 notation (1-indexed row/column).
  */
-function getWallPositions(state: GameState): string {
-  const walls: string[] = []
-  for (let y = 0; y < state.level.height; y++) {
-    for (let x = 0; x < state.level.width; x++) {
-      if (state.level.terrain[y]?.[x] === 'wall') {
-        walls.push(`(${x},${y})`)
-      }
-    }
-  }
-  return walls.join(', ')
+function toRowCol(x: number, y: number): string {
+  return `r${y + 1}c${x + 1}`
 }
 
 /**
- * Generate coordinate locations format representation.
+ * Extract goal positions from terrain (in case goals were edited).
+ */
+function getGoalsFromTerrain(state: GameState): { x: number; y: number }[] {
+  const goals: { x: number; y: number }[] = []
+  for (let y = 0; y < state.level.height; y++) {
+    for (let x = 0; x < state.level.width; x++) {
+      if (state.level.terrain[y]?.[x] === 'goal') {
+        goals.push({ x, y })
+      }
+    }
+  }
+  return goals
+}
+
+/**
+ * Generate coordinate locations format representation using r1c4 notation.
  */
 function generateCoordinateLocationsFormat(state: GameState): string {
+  const goals = getGoalsFromTerrain(state)
   const parts: string[] = []
-  parts.push(`Board Size: ${state.level.width}x${state.level.height}`)
-  parts.push(`Wall Locations: ${getWallPositions(state)}`)
-  parts.push(`Player Location: (${state.playerPos.x},${state.playerPos.y})`)
-  parts.push(`Box Locations: ${state.boxes.map((b) => `(${b.x},${b.y})`).join(', ')}`)
-  parts.push(`Goal Locations: ${state.level.goals.map((g) => `(${g.x},${g.y})`).join(', ')}`)
+  parts.push(`Board: ${state.level.height} rows × ${state.level.width} columns`)
+  parts.push(`Player: ${toRowCol(state.playerPos.x, state.playerPos.y)}`)
+  parts.push(`Boxes: ${state.boxes.map((b) => toRowCol(b.x, b.y)).join(', ')}`)
+  parts.push(`Goals: ${goals.map((g) => toRowCol(g.x, g.y)).join(', ')}`)
   return parts.join('\n')
 }
 
@@ -127,17 +134,6 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
     parts.push(generateCoordinateLocationsFormat(state))
     parts.push('')
   }
-
-  // Notation guide is always included
-  parts.push('## Notation Guide')
-  parts.push('Standard Sokoban notation uses lowercase for moves and uppercase for pushes:')
-  parts.push('- u/U = Up')
-  parts.push('- d/D = Down')
-  parts.push('- l/L = Left')
-  parts.push('- r/R = Right')
-  parts.push('')
-  parts.push('Example solution: "rrddrr" means Right, Right, Down, Down, Right, Right')
-  parts.push('')
 
   // Progress info
   const boxesOnGoals = state.boxes.filter(
@@ -242,8 +238,8 @@ export function generateMoveByMovePrompt(state: GameState, moveHistory: string[]
 export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {
   asciiGrid: true,
   coordinateFormat: true,
-  includeNotationGuide: true,
+  includeNotationGuide: false,
   executionMode: 'fullSolution',
   cipherSymbols: false,
-  coordinateLocations: false,
+  coordinateLocations: true,
 }

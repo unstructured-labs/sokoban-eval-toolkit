@@ -32,6 +32,7 @@ import type {
 } from '@src/types'
 import { levelToAsciiWithCoords } from '@src/utils/levelParser'
 import { DEFAULT_PROMPT_OPTIONS, generateSokobanPrompt } from '@src/utils/promptGeneration'
+import { simpleSolve } from '@src/utils/simpleSolver'
 import { type SolutionResult, getSolution } from '@src/utils/solutionCache'
 import { movesToNotation } from '@src/utils/solutionValidator'
 import { AlertCircle, Copy } from 'lucide-react'
@@ -45,6 +46,7 @@ interface AIPanelProps {
   onReset: () => void
   disabled?: boolean
   onInferenceTimeChange?: (timeMs: number | null) => void
+  isEditing?: boolean
 }
 
 type PlannedMoveStatus = 'pending' | 'executing' | 'success' | 'failed'
@@ -61,6 +63,7 @@ export function AIPanel({
   onReset,
   disabled = false,
   onInferenceTimeChange,
+  isEditing = false,
 }: AIPanelProps) {
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [promptOptions, setPromptOptions] = useState<PromptOptions>({
@@ -140,13 +143,30 @@ export function AIPanel({
   }, [levelId, onInferenceTimeChange])
 
   // Load solution when level changes (cache first, then solver)
+  // Use simple solver when editing for faster results
   useEffect(() => {
     if (!state?.level) {
       setCachedSolution(null)
       return
     }
+
+    if (isEditing) {
+      const result = simpleSolve(state.level)
+      if (result.solvable && result.solution) {
+        setCachedSolution({
+          found: true,
+          solution: result.solution,
+          moveCount: result.moveCount,
+          source: 'solver',
+        })
+      } else {
+        setCachedSolution({ found: false, hitLimit: false })
+      }
+      return
+    }
+
     getSolution(state.level).then(setCachedSolution)
-  }, [state?.level])
+  }, [state?.level, isEditing])
 
   // Notify parent of inference time changes
   useEffect(() => {
@@ -530,7 +550,10 @@ export function AIPanel({
   const aiHasRun = plannedMoves.length > 0
   const aiHasResponded = sessionMetrics.requestCount > 0
   const hasFailedMoves = plannedMoves.some((m) => m.status === 'failed')
+  const allMovesExecuted =
+    aiHasRun && plannedMoves.length > 0 && plannedMoves.every((m) => m.status === 'success')
   const aiCompleted = aiHasRun && !isRunning && state?.isWon && !hasFailedMoves
+  const aiFailed = aiHasRun && !isRunning && !state?.isWon && (hasFailedMoves || allMovesExecuted)
   const aiStopped = aiHasRun && !isRunning && (!state?.isWon || hasFailedMoves)
 
   const getStatusIcon = (status: PlannedMoveStatus) => {
@@ -598,7 +621,12 @@ export function AIPanel({
             </span>
           )}
           {aiCompleted && <span className="text-xs text-green-400">Puzzle Solved!</span>}
-          {wasManuallyStopped && !isRunning && (
+          {aiFailed && !wasManuallyStopped && (
+            <span className="text-xs text-red-400">
+              {hasFailedMoves ? 'Invalid Move' : 'Unsolved'}
+            </span>
+          )}
+          {wasManuallyStopped && !isRunning && !aiFailed && (
             <span className="text-xs text-yellow-400">Stopped</span>
           )}
         </div>
@@ -676,22 +704,6 @@ export function AIPanel({
                 ASCII Grid
               </Label>
             </div>
-            {/* Cipher Symbols option */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="cipherSymbols"
-                checked={promptOptions.cipherSymbols}
-                onCheckedChange={() => togglePromptOption('cipherSymbols')}
-                disabled={isRunning || plannedMoves.length > 0 || !promptOptions.asciiGrid}
-                className="h-3.5 w-3.5"
-              />
-              <Label
-                htmlFor="cipherSymbols"
-                className={`text-xs ${isRunning || plannedMoves.length > 0 || !promptOptions.asciiGrid ? 'text-muted-foreground cursor-default' : 'cursor-pointer'}`}
-              >
-                Cipher Symbols
-              </Label>
-            </div>
             {/* Coordinate Locations option */}
             <div className="flex items-center gap-2">
               <Checkbox
@@ -708,9 +720,21 @@ export function AIPanel({
                 Coordinate Locations
               </Label>
             </div>
-            {/* Coordinates and Notation Guide are always included */}
-            <div className="text-[10px] text-muted-foreground ml-5">
-              Coordinates + Notation Guide always included
+            {/* Cipher Symbols option */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="cipherSymbols"
+                checked={promptOptions.cipherSymbols}
+                onCheckedChange={() => togglePromptOption('cipherSymbols')}
+                disabled={isRunning || plannedMoves.length > 0 || !promptOptions.asciiGrid}
+                className="h-3.5 w-3.5"
+              />
+              <Label
+                htmlFor="cipherSymbols"
+                className={`text-xs ${isRunning || plannedMoves.length > 0 || !promptOptions.asciiGrid ? 'text-muted-foreground cursor-default' : 'cursor-pointer'}`}
+              >
+                Cipher Symbols
+              </Label>
             </div>
           </div>
         </div>

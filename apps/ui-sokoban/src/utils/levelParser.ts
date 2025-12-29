@@ -14,7 +14,7 @@ import type { CellTerrain, Difficulty, GameState, Position, SokobanLevel } from 
 export function parseLevel(
   ascii: string,
   id: string,
-  difficulty: Difficulty = 'medium',
+  difficulty: Difficulty = 'classic',
   fileSource = 'unknown',
   puzzleNumber = 0,
 ): SokobanLevel {

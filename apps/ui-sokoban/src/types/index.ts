@@ -25,10 +25,9 @@ export interface SokobanLevel {
 }
 
 export type Difficulty =
-  | 'easy'
-  | 'easy-custom'
-  | 'medium'
-  | 'hard'
+  | 'eval-easy'
+  | 'mixed-custom'
+  | 'lmiq-reasoning-easy'
   | 'classic'
   | 'classic-hard'
   | 'microban'

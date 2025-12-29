@@ -18,13 +18,12 @@ export const COLORS = {
 
 // Difficulty display names
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  easy: 'Easy (2 boxes)',
-  'easy-custom': 'Easy (Custom)',
-  medium: 'Medium (3 boxes)',
-  hard: 'Hard (4 boxes)',
+  'eval-easy': 'Eval Easy',
+  'mixed-custom': 'Mixed (Custom)',
+  'lmiq-reasoning-easy': 'LMIQ Reasoning Easy',
+  microban: 'Microban (Beginner)',
   classic: 'Boxoban (Medium)',
   'classic-hard': 'Boxoban (Hard)',
-  microban: 'Microban',
 }
 
 // Move key mappings (arrow keys only)

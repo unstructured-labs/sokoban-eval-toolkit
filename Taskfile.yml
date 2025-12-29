@@ -50,3 +50,13 @@ tasks:
     dir: apps/ui-sokoban
     cmds:
       - bun run scripts/benchmark-solver.ts
+
+  lmiq:
+    desc: Generate LMIQ Reasoning Easy eval set (100 puzzles)
+    cmds:
+      - bun run scripts/generate-lmiq-eval.ts {{.CLI_ARGS}}
+
+  solutions:
+    desc: Generate reasoning solutions for puzzles using LLM
+    cmds:
+      - bun run scripts/generate-solutions.ts

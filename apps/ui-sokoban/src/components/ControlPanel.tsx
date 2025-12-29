@@ -2,6 +2,7 @@ import { Button } from '@sokoban-eval-toolkit/ui-library/components/button'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
 import type { GameState, MoveDirection } from '@src/types'
 import { isSimpleDeadlock } from '@src/utils/gameEngine'
+import { simpleSolve } from '@src/utils/simpleSolver'
 import { type SolutionResult, getSolution } from '@src/utils/solutionCache'
 import { AlertTriangle, RotateCcw, Undo2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -14,6 +15,7 @@ interface ControlPanelProps {
   aiInferenceTimeMs?: number | null
   onRunSolution?: (moves: MoveDirection[]) => void
   isPlayingSolution?: boolean
+  isEditing?: boolean
 }
 
 export function ControlPanel({
@@ -24,6 +26,7 @@ export function ControlPanel({
   aiInferenceTimeMs,
   onRunSolution,
   isPlayingSolution = false,
+  isEditing = false,
 }: ControlPanelProps) {
   const canUndo = state !== null && state.moveHistory.length > 0
 
@@ -59,11 +62,27 @@ export function ControlPanel({
       return
     }
 
+    // Use simple solver when editing (faster), full solver otherwise
+    if (isEditing) {
+      const result = simpleSolve(state.level)
+      if (result.solvable && result.solution) {
+        setSolution({
+          found: true,
+          solution: result.solution,
+          moveCount: result.moveCount,
+          source: 'solver',
+        })
+      } else {
+        setSolution({ found: false, hitLimit: false })
+      }
+      return
+    }
+
     setIsLoading(true)
     getSolution(state.level)
       .then(setSolution)
       .finally(() => setIsLoading(false))
-  }, [state?.level])
+  }, [state?.level, isEditing])
 
   // Calculate remaining moves from original solution
   const remainingMoves = useMemo(() => {

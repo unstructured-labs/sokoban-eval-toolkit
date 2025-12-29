@@ -6,7 +6,7 @@ import {
 } from '@sokoban-eval-toolkit/ui-library/components/card'
 import { MOVE_KEYS } from '@src/constants'
 import type { CellTerrain, GameState, MoveDirection, Position, SokobanLevel } from '@src/types'
-import { generateEasyCustomLevel } from '@src/utils/easyCustomGenerator'
+import { generateEvalEasyLevel } from '@src/utils/evalEasyGenerator'
 import {
   executeMove,
   getBoxesOnGoalsCount,
@@ -22,7 +22,7 @@ import {
   loadLayout,
   saveLayout,
 } from '@src/utils/layoutStorage'
-import { generateLevel } from '@src/utils/levelGenerator'
+import { generateMixedCustomLevel } from '@src/utils/mixedCustomGenerator'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { AIPanel } from './components/AIPanel'
@@ -71,7 +71,7 @@ export function SokobanGame() {
     if (initialLoadDone.current) return
     initialLoadDone.current = true
 
-    const level = generateLevel('easy')
+    const level = generateEvalEasyLevel()
     handleLevelLoad(level)
   }, [handleLevelLoad])
 
@@ -182,11 +182,11 @@ export function SokobanGame() {
   // Generate new puzzle (for generated difficulties)
   const handleRegenerate = useCallback(() => {
     const difficulty = currentLevel?.difficulty
-    if (difficulty === 'easy-custom') {
-      const newLevel = generateEasyCustomLevel()
+    if (difficulty === 'eval-easy') {
+      const newLevel = generateEvalEasyLevel()
       handleLevelLoad(newLevel)
-    } else if (difficulty === 'easy' || difficulty === 'medium' || difficulty === 'hard') {
-      const newLevel = generateLevel(difficulty)
+    } else if (difficulty === 'mixed-custom') {
+      const newLevel = generateMixedCustomLevel()
       handleLevelLoad(newLevel)
     }
   }, [currentLevel, handleLevelLoad])
@@ -759,6 +759,7 @@ export function SokobanGame() {
               aiInferenceTimeMs={aiInferenceTimeMs}
               onRunSolution={handleRunSolution}
               isPlayingSolution={isPlayingSolution}
+              isEditing={isEditing}
             />
           </CardContent>
         </Card>
@@ -933,6 +934,7 @@ export function SokobanGame() {
           onReset={handleReset}
           disabled={!gameState}
           onInferenceTimeChange={setAiInferenceTimeMs}
+          isEditing={isEditing}
         />
       </div>
     </div>
