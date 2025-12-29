@@ -574,24 +574,32 @@ export const LMIQ_REASONING_EASY_LEVELS_RAW = \`${asciiLevels.join('\n\n')}\`
   console.log(`Written to: ${outputPath}`)
 
   // ============================================================================
-  // JSONL GENERATION
+  // JSONL GENERATION (Train/Test Split)
   // ============================================================================
 
   const dataDir = resolve(process.cwd(), 'data/raw')
   await mkdir(dataDir, { recursive: true })
 
-  // Generate JSONL entries with puzzle IDs
+  // Split: 10% for test, 90% for train
+  const testSize = Math.max(1, Math.round(shuffledLevels.length * 0.1))
+  const testLevels = shuffledLevels.slice(0, testSize)
+  const trainLevels = shuffledLevels.slice(testSize)
+
+  console.log(`\nSplit: ${trainLevels.length} train, ${testLevels.length} test`)
+
+  // Generate train entries (with solutions)
   const trainEntries: string[] = []
-  const testEntries: string[] = []
-
-  for (let i = 0; i < shuffledLevels.length; i++) {
-    const level = shuffledLevels[i]
-    const puzzleId = `lmiq_${level.width}x${level.height}_${String(i).padStart(3, '0')}`
-
-    // Train entry includes the solution
+  for (let i = 0; i < trainLevels.length; i++) {
+    const level = trainLevels[i]
+    const puzzleId = `lmiq_train_${level.width}x${level.height}_${String(i).padStart(3, '0')}`
     trainEntries.push(JSON.stringify(generateTrainEntry(level, puzzleId)))
+  }
 
-    // Test entry does not include the solution
+  // Generate test entries (without solutions - for LLM evaluation)
+  const testEntries: string[] = []
+  for (let i = 0; i < testLevels.length; i++) {
+    const level = testLevels[i]
+    const puzzleId = `lmiq_test_${level.width}x${level.height}_${String(i).padStart(3, '0')}`
     testEntries.push(JSON.stringify(generateTestEntry(level, puzzleId)))
   }
 
@@ -604,8 +612,8 @@ export const LMIQ_REASONING_EASY_LEVELS_RAW = \`${asciiLevels.join('\n\n')}\`
   await writeFile(testPath, `${testEntries.join('\n')}\n`)
 
   console.log('\nJSONL files written:')
-  console.log(`  Train: ${trainPath}`)
-  console.log(`  Test:  ${testPath}`)
+  console.log(`  Train: ${trainPath} (${trainLevels.length} puzzles)`)
+  console.log(`  Test:  ${testPath} (${testLevels.length} puzzles)`)
 
   // Print stats
   const stats = {
