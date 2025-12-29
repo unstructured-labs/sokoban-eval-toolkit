@@ -702,17 +702,16 @@ async function promptForConfig(): Promise<GenerationConfig> {
   const model = await select({
     message: 'Select primary model:',
     choices: modelChoices,
+    pageSize: modelChoices.length,
   })
 
   // Fallback model selection
-  const fallbackChoices = [
-    { name: 'None (no fallback)', value: '' },
-    ...modelChoices.filter((m) => m.value !== model),
-  ]
+  const fallbackChoices = [{ name: 'None (no fallback)', value: '' }, ...modelChoices]
 
   const fallbackModel = await select({
     message: 'Select fallback model (used after 3 failed attempts):',
     choices: fallbackChoices,
+    pageSize: fallbackChoices.length,
   })
 
   // Number to process
