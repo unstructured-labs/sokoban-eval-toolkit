@@ -374,7 +374,7 @@ function levelToAscii(level: GeneratedLevel): string {
       } else if (terrain === 'wall') {
         line += '#'
       } else {
-        line += ' '
+        line += '-'
       }
     }
     lines.push(line)
@@ -410,7 +410,7 @@ function levelToAsciiArray(level: GeneratedLevel): string[] {
       } else if (terrain === 'wall') {
         line += '#'
       } else {
-        line += ' '
+        line += '-'
       }
     }
     lines.push(line)
@@ -505,18 +505,27 @@ function generateTrainEntry(
 
 ${puzzleStr}
 
-Legend: # wall, @ player, $ box, . goal, * box on goal, + player on goal
+Legend: # wall, @ player, $ box, . goal, * box on goal, + player on goal, - empty
 
 ${coordinates}
 
 Provide moves as: U (up), D (down), L (left), R (right).
 
-Example solution: UUDLRRRDLR`
+Example solution: UUDLRRRDLR
+
+Output your final answer as a list of moves in backticks EXACTLY as follows at the end of your response:
+
+ANSWER: \`<moves>\`
+
+e.g.
+
+ANSWER: \`RRULLDR\``
 
   const assistantResponse = `Solution: ${solutionNotation}`
 
   return {
     id: level.id,
+    type: 'sokoban',
     puzzle_id: puzzleId,
     difficulty,
     puzzle: puzzleArray,
@@ -545,16 +554,25 @@ function generateTestEntry(
 
 ${puzzleStr}
 
-Legend: # wall, @ player, $ box, . goal, * box on goal, + player on goal
+Legend: # wall, @ player, $ box, . goal, * box on goal, + player on goal, - empty
 
 ${coordinates}
 
 Provide moves as: U (up), D (down), L (left), R (right).
 
-Example solution: UUDLRRRDLR`
+Example solution: UUDLRRRDLR
+
+Output your final answer as a list of moves in backticks EXACTLY as follows at the end of your response:
+
+ANSWER: \`<moves>\`
+
+e.g.
+
+ANSWER: \`RRULLDR\``
 
   return {
     id: level.id,
+    type: 'sokoban',
     puzzle_id: puzzleId,
     difficulty,
     puzzle: puzzleArray,

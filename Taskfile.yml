@@ -52,11 +52,21 @@ tasks:
       - bun run scripts/benchmark-solver.ts
 
   lmiq:
-    desc: Generate LMIQ eval set (interactive CLI)
+    desc: Generate LMIQ Sokoban eval set (interactive CLI)
     cmds:
       - bun run scripts/generate-lmiq-eval.ts
 
-  solutions:
-    desc: Generate reasoning solutions for puzzles using LLM
+  lmiq:solutions:
+    desc: Generate reasoning solutions for Sokoban puzzles using LLM
     cmds:
       - bun run scripts/generate-solutions.ts
+
+  nav:
+    desc: Generate simple navigation eval set (interactive CLI)
+    cmds:
+      - bun run scripts/generate-lmiq-eval-simple.ts
+
+  nav:solutions:
+    desc: Generate reasoning solutions for navigation puzzles using LLM
+    cmds:
+      - bun run scripts/generate-solutions-simple.ts

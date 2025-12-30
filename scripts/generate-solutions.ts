@@ -41,6 +41,7 @@ const DEFAULT_MAX_RETRIES = 3
 
 interface TestEntry {
   puzzle_id: string
+  type: 'sokoban'
   difficulty: string
   puzzle: string[]
   messages: Array<{ role: string; content: string }>
@@ -48,6 +49,7 @@ interface TestEntry {
 
 interface TrainEntry {
   puzzle_id: string
+  type: 'sokoban'
   difficulty: string
   puzzle: string[]
   messages: Array<{ role: string; content: string }>
@@ -69,6 +71,8 @@ interface GenerationConfig {
 interface GenerationStats {
   total: number
   completed: number
+  solvedByPrimary: number
+  solvedByFallback: number
   failed: number
   unsolved: number
   totalCost: number
@@ -457,6 +461,7 @@ async function processOneEntry(
       // Valid solution found
       const trainEntry: TrainEntry = {
         puzzle_id: entry.puzzle_id,
+        type: 'sokoban',
         difficulty: entry.difficulty,
         puzzle: entry.puzzle,
         messages: [
@@ -512,6 +517,7 @@ async function processOneEntry(
         log('Fallback solution valid!')
         const trainEntry: TrainEntry = {
           puzzle_id: entry.puzzle_id,
+          type: 'sokoban',
           difficulty: entry.difficulty,
           puzzle: entry.puzzle,
           messages: [
@@ -546,6 +552,7 @@ async function processOneEntry(
   // All attempts failed - mark as unsolved
   const trainEntry: TrainEntry = {
     puzzle_id: entry.puzzle_id,
+    type: 'sokoban',
     difficulty: entry.difficulty,
     puzzle: entry.puzzle,
     messages: [
@@ -627,6 +634,11 @@ async function processEntries(
           )
         } else {
           stats.completed++
+          if (result.usedFallback) {
+            stats.solvedByFallback++
+          } else {
+            stats.solvedByPrimary++
+          }
           const costStr = formatCost(result.cost)
           const tokensStr = `${result.inputTokens}/${result.outputTokens}`
           const reasoningStr = result.reasoningTokens > 0 ? ` +${result.reasoningTokens}r` : ''
@@ -850,6 +862,8 @@ async function main(): Promise<void> {
     const stats: GenerationStats = {
       total: config.count,
       completed: 0,
+      solvedByPrimary: 0,
+      solvedByFallback: 0,
       failed: 0,
       unsolved: 0,
       totalCost: 0,
@@ -869,6 +883,10 @@ async function main(): Promise<void> {
     console.log(`\n${'='.repeat(50)}`)
     console.log('📊 Generation Complete\n')
     console.log(`   Solved: ${stats.completed}/${stats.total}`)
+    console.log(`   - Primary model: ${stats.solvedByPrimary}`)
+    if (config.fallbackModel) {
+      console.log(`   - Fallback model: ${stats.solvedByFallback}`)
+    }
     console.log(`   Unsolved: ${stats.unsolved}`)
     console.log(`   Failed: ${stats.failed}`)
     console.log(`   Total Cost: ${formatCost(stats.totalCost)}`)

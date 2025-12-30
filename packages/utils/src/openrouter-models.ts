@@ -141,19 +141,14 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
     description: 'Kimi K2 Thinking model',
   },
   {
-    id: 'qwen/qwen3-next-80b-a3b-thinking',
-    name: 'Qwen3 Next 80B A3B Thinking',
-    description: 'Qwen3 Next 80B A3B Thinking model',
-  },
-  {
-    id: 'qwen/qwen3-next-80b-a3b-instruct',
-    name: 'Qwen3 Next 80B A3B Instruct',
-    description: 'Qwen3 Next 80B A3B Instruct model',
-  },
-  {
     id: 'qwen/qwen3-32b',
     name: 'Qwen3 32B',
     description: 'Qwen3 32B model',
+  },
+  {
+    id: 'qwen/qwen3-14b',
+    name: 'Qwen3 14B',
+    description: 'Qwen3 14B model',
   },
   {
     id: 'qwen/qwen3-8b',
