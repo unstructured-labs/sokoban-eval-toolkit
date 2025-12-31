@@ -17,7 +17,7 @@ import { resolve } from 'node:path'
 
 import { ExitPromptError } from '@inquirer/core'
 import { confirm, input, select } from '@inquirer/prompts'
-import { SOKOBAN_OUTPUT_FORMAT_INSTRUCTIONS } from '@sokoban-eval-toolkit/utils'
+import { EVAL_OUTPUT_FORMAT_INSTRUCTIONS } from '@sokoban-eval-toolkit/utils'
 
 import type {
   CellTerrain,
@@ -510,9 +510,13 @@ Legend: # wall, @ player, $ box, . goal, * box on goal, + player on goal, - empt
 
 ${coordinates}
 
-${SOKOBAN_OUTPUT_FORMAT_INSTRUCTIONS}`
+${EVAL_OUTPUT_FORMAT_INSTRUCTIONS}`
 
-  const assistantResponse = `Solution: ${solutionNotation}`
+  const assistantResponse = `<think>
+I am visualizing the board... The solution is clear.
+</think>
+
+{"solution": "${solutionNotation}"}`
 
   return {
     id: level.id,
@@ -549,7 +553,7 @@ Legend: # wall, @ player, $ box, . goal, * box on goal, + player on goal, - empt
 
 ${coordinates}
 
-${SOKOBAN_OUTPUT_FORMAT_INSTRUCTIONS}`
+${EVAL_OUTPUT_FORMAT_INSTRUCTIONS}`
 
   return {
     id: level.id,

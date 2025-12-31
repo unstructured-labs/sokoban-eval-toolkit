@@ -21,11 +21,12 @@ import * as fs from 'node:fs'
 import { ExitPromptError } from '@inquirer/core'
 import { confirm, input, select } from '@inquirer/prompts'
 import {
+  EVAL_OUTPUT_FORMAT_INSTRUCTIONS,
   OPENROUTER_MODELS,
-  SIMPLE_NAV_OUTPUT_FORMAT_INSTRUCTIONS,
   createOpenRouterClient,
   extractOpenRouterCost,
   extractOpenRouterReasoningTokens,
+  formatTrainingResponse,
   hasOpenRouterApiKey,
 } from '@sokoban-eval-toolkit/utils'
 import pLimit from 'p-limit'
@@ -397,7 +398,7 @@ async function generateSolution(
     let userContent = userMsg?.content || ''
 
     // Try exact match first (most reliable)
-    const exactIndex = userContent.indexOf(SIMPLE_NAV_OUTPUT_FORMAT_INSTRUCTIONS)
+    const exactIndex = userContent.indexOf(EVAL_OUTPUT_FORMAT_INSTRUCTIONS)
     if (exactIndex !== -1) {
       userContent = userContent.slice(0, exactIndex).trim()
     } else {
@@ -545,9 +546,9 @@ async function processOneEntry(
 
     if (validateSolution(entry.puzzle, moves)) {
       log('Valid solution found!')
-      // Valid solution found - format as JSON response for training
+      // Valid solution found - format with <think> tags for training
       const assistantContent = parsed
-        ? JSON.stringify({ reasoning: parsed.reasoning, solution: parsed.solution }, null, 2)
+        ? formatTrainingResponse(parsed.reasoning, parsed.solution)
         : result.response
 
       const trainEntry: TrainEntry = {
@@ -620,8 +621,9 @@ async function processOneEntry(
 
       if (validateSolution(entry.puzzle, moves)) {
         log('Fallback solution valid!')
+        // Format with <think> tags for training
         const assistantContent = parsed
-          ? JSON.stringify({ reasoning: parsed.reasoning, solution: parsed.solution }, null, 2)
+          ? formatTrainingResponse(parsed.reasoning, parsed.solution)
           : result.response
 
         const trainEntry: TrainEntry = {
@@ -662,9 +664,9 @@ async function processOneEntry(
 
   log('All attempts exhausted - marking as unsolved')
   // All attempts failed - mark as unsolved
-  // Still format as JSON if we have parsed content
+  // Still format with <think> tags if we have parsed content
   const assistantContent = lastParsed
-    ? JSON.stringify({ reasoning: lastParsed.reasoning, solution: lastParsed.solution }, null, 2)
+    ? formatTrainingResponse(lastParsed.reasoning, lastParsed.solution)
     : lastResponse
 
   const trainEntry: TrainEntry = {

@@ -15,7 +15,7 @@ import { resolve } from 'node:path'
 
 import { ExitPromptError } from '@inquirer/core'
 import { confirm, input } from '@inquirer/prompts'
-import { SIMPLE_NAV_OUTPUT_FORMAT_INSTRUCTIONS } from '@sokoban-eval-toolkit/utils'
+import { EVAL_OUTPUT_FORMAT_INSTRUCTIONS } from '@sokoban-eval-toolkit/utils'
 
 // ============================================================================
 // Types
@@ -331,7 +331,7 @@ Legend:
 - Goal is at row ${goalRow}, column ${goalCol}
 - Walls (#) are impassable
 
-${SIMPLE_NAV_OUTPUT_FORMAT_INSTRUCTIONS}`
+${EVAL_OUTPUT_FORMAT_INSTRUCTIONS}`
 }
 
 /**
@@ -341,7 +341,11 @@ function generateTrainEntry(puzzle: GeneratedPuzzleWithId): Record<string, unkno
   const puzzleLines = puzzleToLines(puzzle.puzzle)
   const systemPrompt = 'You are a navigation assistant specializing in 2D navigation challenges.'
   const userPrompt = generateUserPrompt(puzzle)
-  const assistantResponse = puzzle.shortestPath
+  const assistantResponse = `<think>
+I am visualizing the board... The solution is clear.
+</think>
+
+{"solution": "${puzzle.shortestPath}"}`
 
   return {
     id: puzzle.id,

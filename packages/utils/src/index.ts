@@ -19,6 +19,8 @@ export {
 } from './openrouter-client'
 export { formatNumber, formatDuration, formatCost } from './format'
 export {
-  SOKOBAN_OUTPUT_FORMAT_INSTRUCTIONS,
-  SIMPLE_NAV_OUTPUT_FORMAT_INSTRUCTIONS,
+  EVAL_OUTPUT_FORMAT_INSTRUCTIONS,
+  SOLUTION_GENERATION_FORMAT_INSTRUCTIONS,
+  formatTrainingResponse,
+  parseTrainingResponse,
 } from './prompt-constants'
