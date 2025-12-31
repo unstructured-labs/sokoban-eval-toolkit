@@ -721,7 +721,7 @@ async function promptForConfig(): Promise<GenerationConfig> {
   // Output directory
   const outputDir = await input({
     message: 'Output directory:',
-    default: 'data/raw',
+    default: 'data/sokoban',
   })
 
   // Train/test split

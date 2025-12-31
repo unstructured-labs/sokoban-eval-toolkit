@@ -829,7 +829,7 @@ async function promptForConfig(): Promise<GenerationConfig> {
   console.log('✓  OpenRouter API key found\n')
 
   // Input file
-  const defaultInput = 'data/raw/train.jsonl'
+  const defaultInput = 'data/sokoban/train.jsonl'
   const inputFile = await input({
     message: 'Input JSONL file:',
     default: defaultInput,
@@ -846,7 +846,7 @@ async function promptForConfig(): Promise<GenerationConfig> {
   console.log(`   Found ${entries.length} puzzles\n`)
 
   // Output file
-  const defaultOutput = 'data/raw/train_with_reasoning.jsonl'
+  const defaultOutput = 'data/sokoban/train_with_reasoning.jsonl'
   const outputFile = await input({
     message: 'Output JSONL file:',
     default: defaultOutput,

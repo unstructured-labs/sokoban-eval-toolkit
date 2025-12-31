@@ -464,7 +464,7 @@ async function promptForConfig(): Promise<GenerationConfig> {
   // Output directory
   const outputDir = await input({
     message: 'Output directory:',
-    default: 'data/simple-nav',
+    default: 'data/nav',
   })
 
   // Train/test split
