@@ -12,7 +12,7 @@ The toolkit generates training data in a two-phase approach:
 ## Data Pipeline
 
 ```
-generate-lmiq-eval*.ts          generate-solutions*.ts
+generate-sokoban.ts / generate-nav.ts     generate-solutions*.ts
         |                               |
         v                               v
    train.jsonl  ─────────────>  train_with_reasoning.jsonl
@@ -124,8 +124,8 @@ Both puzzle types use the same move notation:
 
 | Script | Purpose |
 |--------|---------|
-| `generate-lmiq-eval.ts` | Generate Sokoban puzzle datasets |
-| `generate-lmiq-eval-simple.ts` | Generate navigation puzzle datasets |
+| `generate-sokoban.ts` | Generate Sokoban puzzle datasets |
+| `generate-nav.ts` | Generate navigation puzzle datasets |
 | `generate-solutions.ts` | Generate reasoning traces for Sokoban |
 | `generate-solutions-simple.ts` | Generate reasoning traces for navigation |
 

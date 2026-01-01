@@ -38,32 +38,26 @@ import pLimit from 'p-limit'
 const DEFAULT_MAX_RETRIES = 3
 
 const REASONING_INSTRUCTIONS = `
-Your task is to produce clear step-by-step reasoning which leads to the solution to this puzzle. Format your response as a JSON object with the following structure:
+Think through this navigation puzzle step by step, reasoning naturally.
+
+Consider:
+- Where you are and where you need to go
+- Any walls that might block the direct path
+- The sequence of moves to reach the goal
+- Verify your path is valid before finalizing
+
+Format your response as JSON:
 
 \`\`\`json
 {
-  "reasoning": "<your step-by-step reasoning>",
+  "reasoning": "<your natural step-by-step reasoning>",
   "solution": "UDLR..."
 }
 \`\`\`
 
-Your reasoning should follow this structure (include these headers in your reasoning string):
+The "solution" string must contain only U (up), D (down), L (left), R (right). Example: "RRDDLU"
 
-## Initial Observations
-List clear and useful observations about the puzzle - e.g. player and goal locations, any wall locations, board size, etc.
-
-## Strategy Exploration
-Begin to enumerate obvious strategy directions. For example, if the goal is in row 4 and you are in row 2, a useful observation is: "I am in row 2 and the goal is in row 4. I will need to move down at least twice to reach the goal. I should check if there are any walls that would block a direct move down." List wall locations and the type of movement they would block (or note if they seem irrelevant).
-
-## Refinement
-Begin to refine a specific strategic solution utilizing your above observations.
-
-## Solution
-Enumerate the specific solution logic and steps that lead to your final move sequence.
-
-The "solution" string must contain only the characters U (up), D (down), L (left), and R (right). For example: "RRDDLU".
-
-IMPORTANT: Your entire response must be valid JSON matching the schema above. Do not include any text before or after the JSON object.
+IMPORTANT: Your entire response must be valid JSON. Do not include any text before or after the JSON object.
 `.trim()
 
 // ============================================================================

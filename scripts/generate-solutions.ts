@@ -67,32 +67,27 @@ function stripOutputFormatInstructions(content: string): string {
 }
 
 const REASONING_INSTRUCTIONS = `
-Your task is to produce clear step-by-step reasoning which leads to the solution to this Sokoban puzzle. Format your response as a JSON object with the following structure:
+Think through this Sokoban puzzle step by step, reasoning naturally as you work through the problem.
+
+Good reasoning includes:
+- Understanding the current state (player position, box positions, goals)
+- Identifying constraints and potential deadlocks (boxes in corners, blocking positions)
+- Considering which boxes to move first and why
+- Working through the sequence of moves
+- Verifying the solution actually works
+
+Format your response as JSON:
 
 \`\`\`json
 {
-  "reasoning": "<your step-by-step reasoning>",
+  "reasoning": "<your natural step-by-step reasoning>",
   "solution": "UDLR..."
 }
 \`\`\`
 
-Your reasoning should follow this structure (include these headers in your reasoning string):
+The "solution" string must contain only U (up), D (down), L (left), R (right). Example: "RRDDLUURRD"
 
-## Initial Observations
-List clear and useful observations about the puzzle - e.g. player position, box positions, goal positions, wall layout, and board size.
-
-## Strategy Exploration
-Analyze the puzzle structure. Consider: Which box should be moved first? What positions would block other boxes? Are there any boxes that are already well-positioned? Identify potential deadlock situations (boxes pushed into corners or against walls where they can't reach goals).
-
-## Refinement
-Develop a specific sequence of moves. Think through each push carefully - once a box is pushed, it can only be moved by pushing it again from the opposite side.
-
-## Solution
-Enumerate the specific solution logic and the final move sequence.
-
-The "solution" string must contain only the characters U (up), D (down), L (left), and R (right). For example: "RRDDLUURRD".
-
-IMPORTANT: Your entire response must be valid JSON matching the schema above. Do not include any text before or after the JSON object.
+IMPORTANT: Your entire response must be valid JSON. Do not include any text before or after the JSON object.
 `.trim()
 
 // ============================================================================

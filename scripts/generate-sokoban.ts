@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 
 /**
- * Generate LMIQ Reasoning eval sets with interactive CLI.
+ * Generate Sokoban eval sets with interactive CLI.
  *
  * Difficulty presets:
  * - Very Easy: 5x5/6x6, 1 box only
  * - Easy: 4x4-10x10, 40% 1-box, 35% 2-box, 25% 3-box
  * - Custom: User-defined distribution
  *
- * Usage: bun run scripts/generate-lmiq-eval.ts
+ * Usage: bun run scripts/generate-sokoban.ts
  */
 
 import { createHash } from 'node:crypto'
@@ -923,7 +923,7 @@ async function main(): Promise<void> {
     })
 
     const fileContent = `// LMIQ Reasoning ${getPresetLabel(config.preset)} eval set
-// Generated with: bun run scripts/generate-lmiq-eval.ts
+// Generated with: bun run scripts/generate-sokoban.ts
 // Total puzzles: ${shuffledLevels.length}
 // Distribution: Very Easy=${config.distribution.veryEasy}, Easy=${config.distribution.easy}, Medium=${config.distribution.medium}, Hard=${config.distribution.hard}, Very Hard=${config.distribution.veryHard}
 

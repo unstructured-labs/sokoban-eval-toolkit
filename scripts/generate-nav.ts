@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 
 /**
- * Generate simple 2D grid navigation eval sets with interactive CLI.
+ * Generate navigation eval sets with interactive CLI.
  *
  * Generates puzzles where a player (@) must navigate to a goal (G)
  * while avoiding walls (#) on a grid.
  *
- * Usage: bun run scripts/generate-lmiq-eval-simple.ts
+ * Usage: bun run scripts/generate-nav.ts
  */
 
 import { createHash } from 'node:crypto'

@@ -15,21 +15,18 @@
  * Matches the transformed training data format.
  */
 export const EVAL_OUTPUT_FORMAT_INSTRUCTIONS = `## Output Format
-First, think through the problem step-by-step inside <think> tags. Then provide your solution as JSON.
+Think through the problem step by step inside <think> tags, then provide your solution as JSON.
 
 Example:
 <think>
-The player is at row 3, column 2. The goal is at row 1, column 4...
+Let me analyze this. The player is at (3,2) and needs to reach (1,4).
+That's 2 rows up and 2 columns right. No walls block this path.
+So I'll move: right, right, up, up.
 </think>
 
 {"solution": "RRUU"}
 
-Rules:
-- Put all reasoning inside the <think> tags
-- The solution JSON must come after the </think> tag
-- The "solution" field should contain only move characters: U (up), D (down), L (left), R (right)
-
-IMPORTANT: Follow this format exactly.`
+The "solution" field should contain only move characters: U (up), D (down), L (left), R (right).`
 
 /**
  * Output format instructions for solution generation.
