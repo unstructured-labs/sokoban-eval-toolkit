@@ -7,8 +7,8 @@ export interface OpenRouterModel {
 export const OPENROUTER_MODELS: OpenRouterModel[] = [
   /* ============================== Grok Models ============================== */
   {
-    id: 'x-ai/grok-4.1-fast ⚡',
-    name: 'Grok 4.1 Fast',
+    id: 'x-ai/grok-4.1-fast',
+    name: 'Grok 4.1 Fast ⚡',
     description: 'Grok 4.1 Fast model',
   },
 

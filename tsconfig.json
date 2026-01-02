@@ -10,6 +10,7 @@
     { "path": "./apps/web" },
     { "path": "./apps/ui-sokoban" },
     { "path": "./apps/[template]" },
-    { "path": "./tooling/[template]" }
+    { "path": "./tooling/[template]" },
+    { "path": "./scripts" }
   ]
 }
