@@ -5,6 +5,13 @@ export interface OpenRouterModel {
 }
 
 export const OPENROUTER_MODELS: OpenRouterModel[] = [
+  /* ============================== Grok Models ============================== */
+  {
+    id: 'x-ai/grok-4.1-fast ⚡',
+    name: 'Grok 4.1 Fast',
+    description: 'Grok 4.1 Fast model',
+  },
+
   /* ============================== Google Models ============================== */
   {
     id: 'google/gemini-3-pro-preview',
@@ -106,13 +113,6 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
     id: 'allenai/olmo-3-7b-instruct',
     name: 'Olmo 3 7B Instruct',
     description: 'Olmo 3 7B Instruct model',
-  },
-
-  /* ============================== Grok Models ============================== */
-  {
-    id: 'x-ai/grok-4.1-fast',
-    name: 'Grok 4.1 Fast',
-    description: 'Grok 4.1 Fast model',
   },
 
   /* ============================== Nvidia Models ============================== */

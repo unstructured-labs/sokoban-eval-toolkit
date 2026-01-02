@@ -38,29 +38,44 @@ import pLimit from 'p-limit'
 const DEFAULT_MAX_RETRIES = 3
 
 const REASONING_INSTRUCTIONS = `
-Solve the following navigation puzzle. Then present your solution and a reasoning summary designed for a smaller model to learn from. The reasoning summary should depict correct, clear, coherent reasoning on this puzzle but also characterize generic reasoning strategies that are extensible and transfer to other domains. Be concise and avoid repetition, but include any key details.
+Solve the following navigation puzzle. Then present your solution and a reasoning summary designed for a smaller model to learn from. The reasoning summary should depict correct, clear, coherent reasoning on this puzzle but also characterize generic reasoning strategies that are extensible and transfer to other domains.
+
+Be thorough in your reasoning - more detail is better. Explore alternate paths, identify potential dead ends, consider what approaches would NOT work and why. The goal is to produce reasoning that teaches problem-solving, not just arrives at an answer.
 
 Follow this structure in your reasoning summary:
 
 # Analyze The Problem
 
-<continue to restate key problem variables, constraints, state, conditions, goals, etc.>
+Restate key problem variables: grid dimensions, player position, goal position, wall locations. Identify any patterns or constraints that will affect pathfinding.
 
 # Strategy Analysis
 
-<analyze important strategic considerations for solving the problem>
+Analyze strategic considerations for solving the problem. Consider:
+- Multiple possible paths to the goal
+- Which paths are blocked and why
+- Any dead ends or traps to avoid
+- The general direction needed (e.g., "need to go up and left")
+- Why certain approaches would fail
 
 # Step-By-Step Execution
 
-<synthesize the above reasoning into a clear, sequential solution to the problem>
+Work through your chosen solution move by move. For each move, state:
+- Current position
+- Direction moved
+- New position
+- Any obstacles navigated around
 
 # Verification
 
-<check your work, note any mistakes or needed corrections to your solution>
+Trace through your ENTIRE solution move-by-move, explicitly stating your position after each step. Confirm:
+- No walls are hit
+- All moves stay within bounds
+- You end exactly at the goal
+If you find any errors, correct them before providing your final solution.
 
 # Solution
 
-<summarize your final answer to the problem>
+State your final answer.
 
 Format your response as JSON:
 
