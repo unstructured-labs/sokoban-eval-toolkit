@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
 /**
- * Solution Generation CLI
+ * Solution Generation CLI for Simple Navigation Puzzles
  *
- * Generates reasoning solutions for Sokoban puzzles using LLMs via OpenRouter.
+ * Generates reasoning solutions for simple navigation puzzles using LLMs via OpenRouter.
  * Reads test puzzles from JSONL, runs them through the selected model,
  * and outputs training data with full reasoning traces.
  *
@@ -14,7 +14,7 @@
  * - Marks unsolved puzzles in output
  *
  * Usage:
- *   bun scripts/generate-solutions.ts
+ *   bun scripts/generate-solutions-simple.ts
  */
 
 import * as fs from 'node:fs'
@@ -37,55 +37,41 @@ import pLimit from 'p-limit'
 
 const DEFAULT_MAX_RETRIES = 3
 
-/**
- * Strip output format instructions from a prompt.
- * Uses the exact constant from the eval generator for reliable matching.
- */
-function stripOutputFormatInstructions(content: string): string {
-  // Try exact match first (most reliable)
-  const exactIndex = content.indexOf(EVAL_OUTPUT_FORMAT_INSTRUCTIONS)
-  if (exactIndex !== -1) {
-    return content.slice(0, exactIndex).trim()
-  }
-
-  // Fallback: look for common markers if exact match fails (handles legacy prompts)
-  const markers = ['## Output Format', 'Provide moves as:', 'Output your final answer', 'ANSWER:']
-  let earliestIndex = content.length
-
-  for (const marker of markers) {
-    const index = content.indexOf(marker)
-    if (index !== -1 && index < earliestIndex) {
-      earliestIndex = index
-    }
-  }
-
-  if (earliestIndex < content.length) {
-    return content.slice(0, earliestIndex).trim()
-  }
-
-  return content
-}
-
 const REASONING_INSTRUCTIONS = `
-Think through this Sokoban puzzle step by step, reasoning naturally as you work through the problem.
+Solve the following navigation puzzle. Then present your solution and a reasoning summary designed for a smaller model to learn from. The reasoning summary should depict correct, clear, coherent reasoning on this puzzle but also characterize generic reasoning strategies that are extensible and transfer to other domains. Be concise and avoid repetition, but include any key details.
 
-Good reasoning includes:
-- Understanding the current state (player position, box positions, goals)
-- Identifying constraints and potential deadlocks (boxes in corners, blocking positions)
-- Considering which boxes to move first and why
-- Working through the sequence of moves
-- Verifying the solution actually works
+Follow this structure in your reasoning summary:
+
+# Analyze The Problem
+
+<continue to restate key problem variables, constraints, state, conditions, goals, etc.>
+
+# Strategy Analysis
+
+<analyze important strategic considerations for solving the problem>
+
+# Step-By-Step Execution
+
+<synthesize the above reasoning into a clear, sequential solution to the problem>
+
+# Verification
+
+<check your work, note any mistakes or needed corrections to your solution>
+
+# Solution
+
+<summarize your final answer to the problem>
 
 Format your response as JSON:
 
 \`\`\`json
 {
-  "reasoning": "<your natural step-by-step reasoning>",
+  "reasoning": "<your reasoning summary following the structure above>",
   "solution": "UDLR..."
 }
 \`\`\`
 
-The "solution" string must contain only U (up), D (down), L (left), R (right). Example: "RRDDLUURRD"
+The "solution" string must contain only U (up), D (down), L (left), R (right). Example: "RRDDLU"
 
 IMPORTANT: Your entire response must be valid JSON. Do not include any text before or after the JSON object.
 `.trim()
@@ -95,20 +81,29 @@ IMPORTANT: Your entire response must be valid JSON. Do not include any text befo
 // ============================================================================
 
 interface TestEntry {
-  puzzle_id: string
-  type: 'sokoban'
-  difficulty: string
+  id: string
+  type: 'navigation'
+  width: number
+  height: number
+  numWalls: number
+  pathLength: number
+  shortestPath: string
   puzzle: string[]
   messages: Array<{ role: string; content: string }>
 }
 
 interface TrainEntry {
-  puzzle_id: string
-  type: 'sokoban'
-  difficulty: string
+  id: string
+  type: 'navigation'
+  width: number
+  height: number
+  numWalls: number
+  pathLength: number
+  shortestPath: string
   puzzle: string[]
   messages: Array<{ role: string; content: string }>
   unsolved?: boolean
+  llmPathLength?: number
 }
 
 interface GenerationConfig {
@@ -134,6 +129,7 @@ interface GenerationStats {
   totalInputTokens: number
   totalOutputTokens: number
   totalReasoningTokens: number
+  reasoningTokenCounts: number[]
 }
 
 interface ProcessResult {
@@ -168,7 +164,7 @@ interface ParsedResponse {
   raw: string
 }
 
-type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
+type MoveDirection = 'U' | 'D' | 'L' | 'R'
 
 interface Position {
   x: number
@@ -180,8 +176,7 @@ interface PuzzleState {
   height: number
   walls: Set<string>
   player: Position
-  boxes: Position[]
-  goals: Position[]
+  goal: Position
 }
 
 // ============================================================================
@@ -209,6 +204,34 @@ function formatCost(cost: number): string {
   return `$${cost.toFixed(2)}`
 }
 
+function computeTokenStats(counts: number[]): {
+  min: number
+  max: number
+  avg: number
+  median: number
+  p25: number
+  p75: number
+} | null {
+  if (counts.length === 0) return null
+
+  const sorted = [...counts].sort((a, b) => a - b)
+  const sum = sorted.reduce((a, b) => a + b, 0)
+
+  const percentile = (p: number) => {
+    const idx = Math.floor((p / 100) * (sorted.length - 1))
+    return sorted[idx]
+  }
+
+  return {
+    min: sorted[0],
+    max: sorted[sorted.length - 1],
+    avg: Math.round(sum / sorted.length),
+    median: percentile(50),
+    p25: percentile(25),
+    p75: percentile(75),
+  }
+}
+
 function posKey(x: number, y: number): string {
   return `${x},${y}`
 }
@@ -223,8 +246,7 @@ function posKey(x: number, y: number): string {
 function parsePuzzle(puzzle: string[]): PuzzleState {
   const walls = new Set<string>()
   let player: Position = { x: 0, y: 0 }
-  const boxes: Position[] = []
-  const goals: Position[] = []
+  let goal: Position = { x: 0, y: 0 }
 
   for (let y = 0; y < puzzle.length; y++) {
     const row = puzzle[y]
@@ -237,19 +259,8 @@ function parsePuzzle(puzzle: string[]): PuzzleState {
         case '@':
           player = { x, y }
           break
-        case '+': // Player on goal
-          player = { x, y }
-          goals.push({ x, y })
-          break
-        case '$':
-          boxes.push({ x, y })
-          break
-        case '*': // Box on goal
-          boxes.push({ x, y })
-          goals.push({ x, y })
-          break
-        case '.':
-          goals.push({ x, y })
+        case 'G':
+          goal = { x, y }
           break
       }
     }
@@ -260,8 +271,7 @@ function parsePuzzle(puzzle: string[]): PuzzleState {
     height: puzzle.length,
     walls,
     player,
-    boxes,
-    goals,
+    goal,
   }
 }
 
@@ -297,17 +307,13 @@ function parseResponse(response: string): ParsedResponse | null {
     const moves: MoveDirection[] = []
 
     for (const char of solutionStr) {
-      if (char === 'U') {
-        moves.push('UP')
-      } else if (char === 'D') {
-        moves.push('DOWN')
-      } else if (char === 'L') {
-        moves.push('LEFT')
-      } else if (char === 'R') {
-        moves.push('RIGHT')
-      } else if (!/\s/.test(char)) {
-        // Invalid move character (skip whitespace, reject others)
-        return null
+      if (char === 'U' || char === 'D' || char === 'L' || char === 'R') {
+        moves.push(char)
+      } else {
+        // Invalid move character - skip whitespace, reject anything else
+        if (!/\s/.test(char)) {
+          return null
+        }
       }
     }
 
@@ -318,7 +324,7 @@ function parseResponse(response: string): ParsedResponse | null {
 
     return {
       reasoning: parsed.reasoning,
-      solution: moves.map((m) => m[0]).join(''), // Normalized: "UDLR" format
+      solution: moves.join(''), // Normalized: uppercase, no whitespace
       moves,
       raw: response,
     }
@@ -335,8 +341,7 @@ function parseMovesFallback(response: string): MoveDirection[] {
   const moves: MoveDirection[] = []
 
   // Find all contiguous sequences of U/D/L/R (case insensitive)
-  // This avoids picking up letters from words like "UP", "DOWN", "LEFT", "RIGHT" in reasoning
-  const sequences = response.match(/[UDLRudlr]{3,}/g) || []
+  const sequences = response.match(/[UDLRudlr]{2,}/g) || []
 
   // Use the longest sequence found (most likely to be the actual solution)
   let bestSequence = ''
@@ -349,19 +354,8 @@ function parseMovesFallback(response: string): MoveDirection[] {
   const normalized = bestSequence.toUpperCase()
 
   for (const char of normalized) {
-    switch (char) {
-      case 'U':
-        moves.push('UP')
-        break
-      case 'D':
-        moves.push('DOWN')
-        break
-      case 'L':
-        moves.push('LEFT')
-        break
-      case 'R':
-        moves.push('RIGHT')
-        break
+    if (char === 'U' || char === 'D' || char === 'L' || char === 'R') {
+      moves.push(char)
     }
   }
 
@@ -370,20 +364,19 @@ function parseMovesFallback(response: string): MoveDirection[] {
 
 /**
  * Validate a solution by replaying the moves.
- * Returns true if the solution results in all boxes on goals.
+ * Returns true if the solution results in player reaching the goal.
  */
 function validateSolution(puzzle: string[], moves: MoveDirection[]): boolean {
   if (moves.length === 0) return false
 
   const state = parsePuzzle(puzzle)
   let player = { ...state.player }
-  const boxes = state.boxes.map((b) => ({ ...b }))
 
   const directions: Record<MoveDirection, { dx: number; dy: number }> = {
-    UP: { dx: 0, dy: -1 },
-    DOWN: { dx: 0, dy: 1 },
-    LEFT: { dx: -1, dy: 0 },
-    RIGHT: { dx: 1, dy: 0 },
+    U: { dx: 0, dy: -1 },
+    D: { dx: 0, dy: 1 },
+    L: { dx: -1, dy: 0 },
+    R: { dx: 1, dy: 0 },
   }
 
   for (const move of moves) {
@@ -391,36 +384,22 @@ function validateSolution(puzzle: string[], moves: MoveDirection[]): boolean {
     const newX = player.x + dx
     const newY = player.y + dy
 
-    // Check wall
-    if (state.walls.has(posKey(newX, newY))) {
+    // Check bounds
+    if (newX < 0 || newX >= state.width || newY < 0 || newY >= state.height) {
       return false
     }
 
-    // Check box
-    const boxIndex = boxes.findIndex((b) => b.x === newX && b.y === newY)
-    if (boxIndex !== -1) {
-      const newBoxX = newX + dx
-      const newBoxY = newY + dy
-
-      // Box blocked by wall or another box
-      if (state.walls.has(posKey(newBoxX, newBoxY))) {
-        return false
-      }
-      if (boxes.some((b) => b.x === newBoxX && b.y === newBoxY)) {
-        return false
-      }
-
-      // Push the box
-      boxes[boxIndex] = { x: newBoxX, y: newBoxY }
+    // Check wall
+    if (state.walls.has(posKey(newX, newY))) {
+      return false
     }
 
     // Move player
     player = { x: newX, y: newY }
   }
 
-  // Check if all boxes are on goals
-  const goalSet = new Set(state.goals.map((g) => posKey(g.x, g.y)))
-  return boxes.every((b) => goalSet.has(posKey(b.x, b.y)))
+  // Check if player reached the goal
+  return player.x === state.goal.x && player.y === state.goal.y
 }
 
 // ============================================================================
@@ -455,7 +434,19 @@ async function generateSolution(
     const userMsg = entry.messages.find((m) => m.role === 'user')
 
     // Strip the original output format instructions
-    const userContent = stripOutputFormatInstructions(userMsg?.content || '')
+    let userContent = userMsg?.content || ''
+
+    // Try exact match first (most reliable)
+    const exactIndex = userContent.indexOf(EVAL_OUTPUT_FORMAT_INSTRUCTIONS)
+    if (exactIndex !== -1) {
+      userContent = userContent.slice(0, exactIndex).trim()
+    } else {
+      // Fallback: look for common markers if exact match fails (handles legacy prompts)
+      const outputFormatIdx = userContent.indexOf('## Output Format')
+      if (outputFormatIdx !== -1) {
+        userContent = userContent.slice(0, outputFormatIdx).trim()
+      }
+    }
 
     const puzzleContent = systemMsg ? `${systemMsg.content}\n\n${userContent}` : userContent
 
@@ -545,10 +536,11 @@ async function processOneEntry(
   let lastResult: LLMResult | null = null
   let lastResponse = ''
   let lastParsed: ParsedResponse | null = null
+  let lastMoves: MoveDirection[] = []
 
   const log = (msg: string) => {
     if (verbose) {
-      console.log(`  [${entry.puzzle_id}] ${msg}`)
+      console.log(`  [${entry.id}] ${msg}`)
     }
   }
 
@@ -589,6 +581,8 @@ async function processOneEntry(
       log(`JSON parse failed, fallback found ${moves.length} moves`)
     }
 
+    lastMoves = moves
+
     if (validateSolution(entry.puzzle, moves)) {
       log('Valid solution found!')
       // Valid solution found - format with <think> tags for training
@@ -597,9 +591,13 @@ async function processOneEntry(
         : result.response
 
       const trainEntry: TrainEntry = {
-        puzzle_id: entry.puzzle_id,
-        type: 'sokoban',
-        difficulty: entry.difficulty,
+        id: entry.id,
+        type: 'navigation',
+        width: entry.width,
+        height: entry.height,
+        numWalls: entry.numWalls,
+        pathLength: entry.pathLength,
+        shortestPath: entry.shortestPath,
         puzzle: entry.puzzle,
         messages: [
           ...entry.messages,
@@ -608,6 +606,7 @@ async function processOneEntry(
             content: assistantContent,
           },
         ],
+        llmPathLength: moves.length,
       }
 
       return {
@@ -623,7 +622,7 @@ async function processOneEntry(
         usedFallback: false,
       }
     }
-    log('Validation failed - solution does not solve puzzle')
+    log('Validation failed - solution does not reach goal')
   }
 
   // Try fallback model if available
@@ -657,6 +656,8 @@ async function processOneEntry(
         log(`Fallback JSON parse failed, found ${moves.length} moves`)
       }
 
+      lastMoves = moves
+
       if (validateSolution(entry.puzzle, moves)) {
         log('Fallback solution valid!')
         // Format with <think> tags for training
@@ -665,9 +666,13 @@ async function processOneEntry(
           : result.response
 
         const trainEntry: TrainEntry = {
-          puzzle_id: entry.puzzle_id,
-          type: 'sokoban',
-          difficulty: entry.difficulty,
+          id: entry.id,
+          type: 'navigation',
+          width: entry.width,
+          height: entry.height,
+          numWalls: entry.numWalls,
+          pathLength: entry.pathLength,
+          shortestPath: entry.shortestPath,
           puzzle: entry.puzzle,
           messages: [
             ...entry.messages,
@@ -676,6 +681,7 @@ async function processOneEntry(
               content: assistantContent,
             },
           ],
+          llmPathLength: moves.length,
         }
 
         return {
@@ -703,9 +709,13 @@ async function processOneEntry(
     : lastResponse
 
   const trainEntry: TrainEntry = {
-    puzzle_id: entry.puzzle_id,
-    type: 'sokoban',
-    difficulty: entry.difficulty,
+    id: entry.id,
+    type: 'navigation',
+    width: entry.width,
+    height: entry.height,
+    numWalls: entry.numWalls,
+    pathLength: entry.pathLength,
+    shortestPath: entry.shortestPath,
     puzzle: entry.puzzle,
     messages: [
       ...entry.messages,
@@ -715,6 +725,7 @@ async function processOneEntry(
       },
     ],
     unsolved: true,
+    llmPathLength: lastMoves.length,
   }
 
   return {
@@ -770,6 +781,9 @@ async function processEntries(
       stats.totalInputTokens += result.inputTokens
       stats.totalOutputTokens += result.outputTokens
       stats.totalReasoningTokens += result.reasoningTokens
+      if (result.reasoningTokens > 0) {
+        stats.reasoningTokenCounts.push(result.reasoningTokens)
+      }
 
       if (result.trainEntry) {
         appendJsonlEntry(config.outputFile, result.trainEntry)
@@ -780,7 +794,7 @@ async function processEntries(
             ? `${result.attempts} attempts + fallback`
             : `${result.attempts} attempts`
           console.log(
-            `${progress} ${result.entry.puzzle_id} - UNSOLVED (${attemptsStr}, ${formatCost(result.cost)})`,
+            `${progress} ${result.entry.id} - UNSOLVED (${attemptsStr}, ${formatCost(result.cost)})`,
           )
         } else {
           stats.completed++
@@ -794,13 +808,17 @@ async function processEntries(
           const reasoningStr = result.reasoningTokens > 0 ? ` +${result.reasoningTokens}r` : ''
           const attemptsStr = result.attempts > 1 ? ` [${result.attempts} attempts]` : ''
           const fallbackStr = result.usedFallback ? ' [fallback]' : ''
+          const pathStr =
+            result.trainEntry.llmPathLength !== result.entry.pathLength
+              ? ` [path: ${result.trainEntry.llmPathLength}/${result.entry.pathLength}]`
+              : ''
           console.log(
-            `${progress} ${result.entry.puzzle_id} - OK (${costStr}, ${tokensStr}${reasoningStr}, ${result.durationMs}ms)${attemptsStr}${fallbackStr}`,
+            `${progress} ${result.entry.id} - OK (${costStr}, ${tokensStr}${reasoningStr}, ${result.durationMs}ms)${attemptsStr}${fallbackStr}${pathStr}`,
           )
         }
       } else if (result.error) {
         stats.failed++
-        console.log(`${progress} ${result.entry.puzzle_id} - FAILED: ${result.error}`)
+        console.log(`${progress} ${result.entry.id} - FAILED: ${result.error}`)
       }
 
       return result
@@ -815,18 +833,18 @@ async function processEntries(
 // ============================================================================
 
 async function promptForConfig(): Promise<GenerationConfig> {
-  console.log('\n🧩 Sokoban Solution Generator\n')
+  console.log('\n🧭 Simple Navigation Solution Generator\n')
 
   // Check API key
   if (!hasOpenRouterApiKey()) {
-    console.error('❌ OpenRouter API key not found.')
+    console.error('Error: OpenRouter API key not found.')
     console.error('   Set OPENROUTER_API_KEY environment variable.')
     process.exit(1)
   }
-  console.log('✓  OpenRouter API key found\n')
+  console.log('OpenRouter API key found\n')
 
   // Input file
-  const defaultInput = 'data/sokoban/train.jsonl'
+  const defaultInput = 'data/nav/train.jsonl'
   const inputFile = await input({
     message: 'Input JSONL file:',
     default: defaultInput,
@@ -843,7 +861,7 @@ async function promptForConfig(): Promise<GenerationConfig> {
   console.log(`   Found ${entries.length} puzzles\n`)
 
   // Output file
-  const defaultOutput = 'data/sokoban/train_with_reasoning.jsonl'
+  const defaultOutput = 'data/nav/train_with_reasoning.jsonl'
   const outputFile = await input({
     message: 'Output JSONL file:',
     default: defaultOutput,
@@ -1020,6 +1038,7 @@ async function main(): Promise<void> {
       totalInputTokens: 0,
       totalOutputTokens: 0,
       totalReasoningTokens: 0,
+      reasoningTokenCounts: [],
     }
 
     const startTime = Date.now()
@@ -1043,8 +1062,18 @@ async function main(): Promise<void> {
     console.log(`   Total Tokens: ${stats.totalInputTokens + stats.totalOutputTokens}`)
     if (stats.totalReasoningTokens > 0) {
       console.log(`   Reasoning Tokens: ${stats.totalReasoningTokens}`)
+      const tokenStats = computeTokenStats(stats.reasoningTokenCounts)
+      if (tokenStats) {
+        console.log('\n   Reasoning Token Distribution:')
+        console.log(`     Min: ${tokenStats.min}`)
+        console.log(`     P25: ${tokenStats.p25}`)
+        console.log(`     Median: ${tokenStats.median}`)
+        console.log(`     P75: ${tokenStats.p75}`)
+        console.log(`     Max: ${tokenStats.max}`)
+        console.log(`     Average: ${tokenStats.avg}`)
+      }
     }
-    console.log(`   Total Time: ${formatDuration(totalTime)}`)
+    console.log(`\n   Total Time: ${formatDuration(totalTime)}`)
     console.log(`   Avg Time/Puzzle: ${formatDuration(totalTime / stats.total)}`)
     console.log(`\n   Output: ${config.outputFile}`)
     console.log('')

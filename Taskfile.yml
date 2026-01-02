@@ -59,7 +59,7 @@ tasks:
   sokoban:solutions:
     desc: Generate reasoning solutions for Sokoban puzzles using LLM
     cmds:
-      - bun run scripts/generate-solutions.ts
+      - bun run scripts/generate-sokoban-solutions.ts
 
   nav:
     desc: Generate navigation eval set (interactive CLI)
@@ -69,4 +69,4 @@ tasks:
   nav:solutions:
     desc: Generate reasoning solutions for navigation puzzles using LLM
     cmds:
-      - bun run scripts/generate-solutions-simple.ts
+      - bun run scripts/generate-nav-solutions.ts

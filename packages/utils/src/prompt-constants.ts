@@ -55,9 +55,8 @@ IMPORTANT: Your response must be valid JSON. Do not include any text outside the
  * Converts { reasoning, solution } to <think>reasoning</think>\n\n{"solution": "..."}
  */
 export function formatTrainingResponse(reasoning: string, solution: string): string {
-  return `<think>
-${reasoning}
-</think>
+  return `<think>Let me put my thinking cap on and analyze this problem step by step.
+${reasoning}</think>
 
 {"solution": "${solution}"}`
 }
