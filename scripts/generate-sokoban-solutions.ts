@@ -117,11 +117,12 @@ Format your response as JSON:
 \`\`\`json
 {
   "reasoning": "<your reasoning summary following the structure above>",
-  "solution": "UDLR..."
+  "solution": ["UP", "DOWN", "LEFT", "RIGHT"]
 }
 \`\`\`
 
-The "solution" string must contain only U (up), D (down), L (left), R (right). Example: "RRDDLUURRD"
+The "solution" field must be an array of moves. Valid moves: "UP", "DOWN", "LEFT", "RIGHT"
+Example: ["RIGHT", "RIGHT", "DOWN", "DOWN", "LEFT", "UP", "UP", "RIGHT", "RIGHT", "DOWN"]
 
 IMPORTANT: Your entire response must be valid JSON. Do not include any text before or after the JSON object.
 `.trim()
@@ -198,14 +199,13 @@ interface LLMResult {
   error?: string
 }
 
+type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
+
 interface ParsedResponse {
   reasoning: string
-  solution: string // e.g. "RRDDLU"
-  moves: MoveDirection[] // parsed from solution string
+  solution: MoveDirection[]
   raw: string
 }
-
-type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
 
 interface Position {
   x: number
@@ -330,9 +330,11 @@ function parsePuzzle(puzzle: string[]): PuzzleState {
   }
 }
 
+const VALID_MOVES: MoveDirection[] = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+
 /**
  * Parse the JSON response from the LLM.
- * Expected format: { "reasoning": "...", "solution": "RRDDLU" }
+ * Expected format: { "reasoning": "...", "solution": ["UP", "DOWN", ...] }
  */
 function parseResponse(response: string): ParsedResponse | null {
   try {
@@ -347,44 +349,29 @@ function parseResponse(response: string): ParsedResponse | null {
 
     const parsed = JSON.parse(jsonStr)
 
-    // Validate schema: reasoning must be non-empty string, solution must be non-empty string
+    // Validate schema: reasoning must be non-empty string, solution must be array
     if (
       typeof parsed.reasoning !== 'string' ||
       parsed.reasoning.trim().length === 0 ||
-      typeof parsed.solution !== 'string' ||
-      parsed.solution.trim().length === 0
+      !Array.isArray(parsed.solution) ||
+      parsed.solution.length === 0
     ) {
       return null
     }
 
-    // Validate and normalize the solution string (only U/D/L/R allowed)
-    const solutionStr = parsed.solution.toUpperCase()
-    const moves: MoveDirection[] = []
-
-    for (const char of solutionStr) {
-      if (char === 'U') {
-        moves.push('UP')
-      } else if (char === 'D') {
-        moves.push('DOWN')
-      } else if (char === 'L') {
-        moves.push('LEFT')
-      } else if (char === 'R') {
-        moves.push('RIGHT')
-      } else if (!/\s/.test(char)) {
-        // Invalid move character (skip whitespace, reject others)
+    // Validate all moves are valid MoveDirection values
+    const solution: MoveDirection[] = []
+    for (const move of parsed.solution) {
+      const normalized = String(move).toUpperCase() as MoveDirection
+      if (!VALID_MOVES.includes(normalized)) {
         return null
       }
-    }
-
-    // Must have at least one move
-    if (moves.length === 0) {
-      return null
+      solution.push(normalized)
     }
 
     return {
       reasoning: parsed.reasoning,
-      solution: moves.map((m) => m[0]).join(''), // Normalized: "UDLR" format
-      moves,
+      solution,
       raw: response,
     }
   } catch {
@@ -393,40 +380,30 @@ function parseResponse(response: string): ParsedResponse | null {
 }
 
 /**
- * Fallback: Parse moves from LLM response by finding contiguous U/D/L/R sequences.
+ * Fallback: Parse moves from LLM response by finding array of move strings.
  * Used when JSON parsing fails.
  */
 function parseMovesFallback(response: string): MoveDirection[] {
   const moves: MoveDirection[] = []
 
-  // Find all contiguous sequences of U/D/L/R (case insensitive)
-  // This avoids picking up letters from words like "UP", "DOWN", "LEFT", "RIGHT" in reasoning
-  const sequences = response.match(/[UDLRudlr]{3,}/g) || []
-
-  // Use the longest sequence found (most likely to be the actual solution)
-  let bestSequence = ''
-  for (const seq of sequences) {
-    if (seq.length > bestSequence.length) {
-      bestSequence = seq
-    }
-  }
-
-  const normalized = bestSequence.toUpperCase()
-
-  for (const char of normalized) {
-    switch (char) {
-      case 'U':
-        moves.push('UP')
-        break
-      case 'D':
-        moves.push('DOWN')
-        break
-      case 'L':
-        moves.push('LEFT')
-        break
-      case 'R':
-        moves.push('RIGHT')
-        break
+  // Try to find array pattern in response
+  const arrayMatch = response.match(/\[([\s\S]*?)\]/g)
+  if (arrayMatch) {
+    for (const arr of arrayMatch) {
+      try {
+        const parsed = JSON.parse(arr) as string[]
+        for (const move of parsed) {
+          const normalized = String(move).toUpperCase() as MoveDirection
+          if (VALID_MOVES.includes(normalized)) {
+            moves.push(normalized)
+          }
+        }
+        if (moves.length > 0) {
+          return moves
+        }
+      } catch {
+        // Not valid JSON array, continue
+      }
     }
   }
 
@@ -645,9 +622,9 @@ async function processOneEntry(
     let moves: MoveDirection[]
 
     if (parsed) {
-      moves = parsed.moves
+      moves = parsed.solution
       lastParsed = parsed
-      log(`Parsed JSON with ${moves.length} moves: ${parsed.solution}`)
+      log(`Parsed JSON with ${moves.length} moves: ${JSON.stringify(parsed.solution)}`)
     } else {
       // Fallback to legacy parsing
       moves = parseMovesFallback(result.response)
@@ -714,9 +691,9 @@ async function processOneEntry(
       let moves: MoveDirection[]
 
       if (parsed) {
-        moves = parsed.moves
+        moves = parsed.solution
         lastParsed = parsed
-        log(`Fallback parsed JSON with ${moves.length} moves: ${parsed.solution}`)
+        log(`Fallback parsed JSON with ${moves.length} moves: ${JSON.stringify(parsed.solution)}`)
       } else {
         moves = parseMovesFallback(result.response)
         log(`Fallback JSON parse failed, found ${moves.length} moves`)

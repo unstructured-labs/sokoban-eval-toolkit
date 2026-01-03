@@ -420,26 +420,6 @@ function levelToAsciiArray(level: GeneratedLevel): string[] {
   return lines
 }
 
-/**
- * Convert solution moves to compact U/D/L/R notation.
- */
-function solutionToNotation(solution: MoveDirection[]): string {
-  return solution
-    .map((move) => {
-      switch (move) {
-        case 'UP':
-          return 'U'
-        case 'DOWN':
-          return 'D'
-        case 'LEFT':
-          return 'L'
-        case 'RIGHT':
-          return 'R'
-      }
-    })
-    .join('')
-}
-
 type DifficultyLevel = 'very-easy' | 'easy' | 'medium' | 'hard' | 'very-hard'
 
 /**
@@ -498,7 +478,6 @@ function generateTrainEntry(
 ): Record<string, unknown> {
   const puzzleArray = levelToAsciiArray(level)
   const puzzleStr = puzzleArray.join('\n')
-  const solutionNotation = solutionToNotation(level.solution)
   const coordinates = generateCoordinates(level)
 
   const systemPrompt = 'You are a puzzle-solving assistant. Think step by step.'
@@ -516,7 +495,7 @@ ${EVAL_OUTPUT_FORMAT_INSTRUCTIONS}`
 I am visualizing the board... The solution is clear.
 </think>
 
-{"solution": "${solutionNotation}"}`
+{"solution": ${JSON.stringify(level.solution)}}`
 
   return {
     id: level.id,

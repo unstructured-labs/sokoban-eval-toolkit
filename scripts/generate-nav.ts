@@ -26,7 +26,7 @@ interface Position {
   y: number
 }
 
-type MoveDirection = 'U' | 'D' | 'L' | 'R'
+type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
 
 interface GenerationConfig {
   totalCount: number
@@ -45,7 +45,7 @@ interface GeneratedPuzzle {
   playerStart: Position
   goal: Position
   walls: Position[]
-  shortestPath: string
+  shortestPath: MoveDirection[]
   pathLength: number
 }
 
@@ -54,10 +54,10 @@ interface GeneratedPuzzleWithId extends GeneratedPuzzle {
 }
 
 const DIRECTIONS: { dir: MoveDirection; dx: number; dy: number }[] = [
-  { dir: 'U', dx: 0, dy: -1 },
-  { dir: 'D', dx: 0, dy: 1 },
-  { dir: 'L', dx: -1, dy: 0 },
-  { dir: 'R', dx: 1, dy: 0 },
+  { dir: 'UP', dx: 0, dy: -1 },
+  { dir: 'DOWN', dx: 0, dy: 1 },
+  { dir: 'LEFT', dx: -1, dy: 0 },
+  { dir: 'RIGHT', dx: 1, dy: 0 },
 ]
 
 // ============================================================================
@@ -72,7 +72,7 @@ interface BFSState {
 
 /**
  * Find shortest path using BFS.
- * Returns the path as a string of moves, or null if no path exists.
+ * Returns the path as an array of moves, or null if no path exists.
  */
 function findShortestPath(
   width: number,
@@ -81,7 +81,7 @@ function findShortestPath(
   start: Position,
   goal: Position,
   maxSteps = 1000,
-): string | null {
+): MoveDirection[] | null {
   const visited = new Set<string>()
   const queue: BFSState[] = [{ x: start.x, y: start.y, path: [] }]
 
@@ -95,7 +95,7 @@ function findShortestPath(
 
     // Check if we reached the goal
     if (current.x === goal.x && current.y === goal.y) {
-      return current.path.join('')
+      return current.path
     }
 
     // Try all directions
@@ -134,7 +134,7 @@ function validateSolution(
   walls: Set<string>,
   start: Position,
   goal: Position,
-  solution: string,
+  solution: MoveDirection[],
 ): boolean {
   let x = start.x
   let y = start.y
@@ -325,7 +325,7 @@ Legend:
 - - = Empty cell
 
 ## Rules
-- Move using: U (up), D (down), L (left), R (right)
+- Valid moves: "UP", "DOWN", "LEFT", "RIGHT"
 - Grid is ${puzzle.height} rows x ${puzzle.width} columns
 - Player starts at row ${playerRow}, column ${playerCol}
 - Goal is at row ${goalRow}, column ${goalCol}
@@ -345,7 +345,7 @@ function generateTrainEntry(puzzle: GeneratedPuzzleWithId): Record<string, unkno
 I am visualizing the board... The solution is clear.
 </think>
 
-{"solution": "${puzzle.shortestPath}"}`
+{"solution": ${JSON.stringify(puzzle.shortestPath)}}`
 
   return {
     id: puzzle.id,

@@ -166,10 +166,12 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
     parts.push('')
     parts.push('Return ONLY a JSON object in this exact format (no other text):')
     parts.push(
-      '{"reasoning":"<detailed step-by-step strategy explanation>","moves":["UP","RIGHT","DOWN","LEFT"]}',
+      '{"reasoning":"<detailed step-by-step strategy explanation>","solution":["UP","RIGHT","DOWN","LEFT"]}',
     )
     parts.push('')
-    parts.push('Valid moves: UP, DOWN, LEFT, RIGHT')
+    parts.push(
+      'The "solution" field must be an array of moves. Valid moves: "UP", "DOWN", "LEFT", "RIGHT"',
+    )
   } else {
     parts.push('Provide the next single move.')
     parts.push('')
@@ -198,7 +200,7 @@ export function generateMinimalPrompt(state: GameState): string {
   parts.push(gameStateToAscii(state))
   parts.push('```')
   parts.push('')
-  parts.push('Reply with moves as a JSON array: ["UP", "DOWN", "LEFT", "RIGHT", ...]')
+  parts.push('Reply with JSON: {"solution": ["UP", "DOWN", "LEFT", "RIGHT", ...]}')
 
   return parts.join('\n')
 }
