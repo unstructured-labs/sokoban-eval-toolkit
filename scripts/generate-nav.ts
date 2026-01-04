@@ -10,7 +10,8 @@
  */
 
 import { createHash } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import { ExitPromptError } from '@inquirer/core'
@@ -36,6 +37,7 @@ interface GenerationConfig {
   maxWalls: number
   outputDir: string
   trainTestSplit: number
+  appendMode: boolean
 }
 
 interface GeneratedPuzzle {
@@ -471,6 +473,18 @@ async function promptForConfig(): Promise<GenerationConfig> {
     default: 'data/nav',
   })
 
+  // Check if files exist and ask about append mode
+  const trainPath = resolve(process.cwd(), outputDir, 'train.jsonl')
+  const filesExist = existsSync(trainPath)
+  let appendMode = false
+
+  if (filesExist) {
+    appendMode = await confirm({
+      message: 'Existing files found. Append to existing files?',
+      default: true,
+    })
+  }
+
   // Train/test split
   const splitStr = await input({
     message: 'Test set percentage (0-50):',
@@ -493,6 +507,7 @@ async function promptForConfig(): Promise<GenerationConfig> {
     maxWalls,
     outputDir,
     trainTestSplit,
+    appendMode,
   }
 }
 
@@ -500,9 +515,12 @@ async function promptForConfig(): Promise<GenerationConfig> {
 // Main
 // ============================================================================
 
-async function generatePuzzles(config: GenerationConfig): Promise<GeneratedPuzzleWithId[]> {
+async function generatePuzzles(
+  config: GenerationConfig,
+  existingHashes: Set<string> = new Set(),
+): Promise<GeneratedPuzzleWithId[]> {
   const puzzles: GeneratedPuzzleWithId[] = []
-  const seenHashes = new Set<string>()
+  const seenHashes = new Set<string>(existingHashes)
 
   console.log(`Generating ${config.totalCount} puzzles...`)
 
@@ -568,6 +586,7 @@ async function main(): Promise<void> {
     console.log(`   Walls: ${config.minWalls} to ${config.maxWalls}`)
     console.log(`   Output Directory: ${config.outputDir}`)
     console.log(`   Train/Test Split: ${100 - config.trainTestSplit}% / ${config.trainTestSplit}%`)
+    console.log(`   Mode: ${config.appendMode ? 'Append to existing files' : 'Create new files'}`)
 
     const proceed = await confirm({
       message: 'Start generation?',
@@ -581,8 +600,30 @@ async function main(): Promise<void> {
 
     console.log('\n')
 
+    // Load existing puzzle hashes if in append mode
+    const existingHashes = new Set<string>()
+    if (config.appendMode) {
+      const trainPath = resolve(process.cwd(), config.outputDir, 'train.jsonl')
+      if (existsSync(trainPath)) {
+        try {
+          const content = await readFile(trainPath, 'utf-8')
+          for (const line of content.trim().split('\n')) {
+            if (line) {
+              const entry = JSON.parse(line)
+              if (entry.id) {
+                existingHashes.add(entry.id)
+              }
+            }
+          }
+          console.log(`   Loaded ${existingHashes.size} existing puzzle hashes`)
+        } catch {
+          console.warn('   Warning: Could not load existing puzzles for deduplication')
+        }
+      }
+    }
+
     // Generate puzzles
-    const puzzles = await generatePuzzles(config)
+    const puzzles = await generatePuzzles(config, existingHashes)
 
     if (puzzles.length === 0) {
       console.error('No puzzles generated!')
@@ -619,22 +660,36 @@ async function main(): Promise<void> {
 
     // Write train.jsonl (base - no assistant response)
     const trainPath = resolve(dataDir, 'train.jsonl')
-    await writeFile(trainPath, `${trainBaseEntries.join('\n')}\n`)
-
     // Write train_with_solutions.jsonl (with solutions)
     const trainWithSolutionsPath = resolve(dataDir, 'train_with_solutions.jsonl')
-    await writeFile(trainWithSolutionsPath, `${trainWithSolutionsEntries.join('\n')}\n`)
-
     // Write test.jsonl
     const testPath = resolve(dataDir, 'test.jsonl')
-    await writeFile(testPath, `${testEntries.join('\n')}\n`)
 
-    console.log('\nJSONL files written:')
-    console.log(`  Train (base):           ${trainPath} (${trainPuzzles.length} puzzles)`)
-    console.log(
-      `  Train (with solutions): ${trainWithSolutionsPath} (${trainPuzzles.length} puzzles)`,
-    )
-    console.log(`  Test:                   ${testPath} (${testPuzzles.length} puzzles)`)
+    if (config.appendMode) {
+      // Append to existing files
+      await appendFile(trainPath, `${trainBaseEntries.join('\n')}\n`)
+      await appendFile(trainWithSolutionsPath, `${trainWithSolutionsEntries.join('\n')}\n`)
+      await appendFile(testPath, `${testEntries.join('\n')}\n`)
+
+      console.log('\nJSONL files appended:')
+      console.log(`  Train (base):           ${trainPath} (+${trainPuzzles.length} puzzles)`)
+      console.log(
+        `  Train (with solutions): ${trainWithSolutionsPath} (+${trainPuzzles.length} puzzles)`,
+      )
+      console.log(`  Test:                   ${testPath} (+${testPuzzles.length} puzzles)`)
+    } else {
+      // Create new files
+      await writeFile(trainPath, `${trainBaseEntries.join('\n')}\n`)
+      await writeFile(trainWithSolutionsPath, `${trainWithSolutionsEntries.join('\n')}\n`)
+      await writeFile(testPath, `${testEntries.join('\n')}\n`)
+
+      console.log('\nJSONL files written:')
+      console.log(`  Train (base):           ${trainPath} (${trainPuzzles.length} puzzles)`)
+      console.log(
+        `  Train (with solutions): ${trainWithSolutionsPath} (${trainPuzzles.length} puzzles)`,
+      )
+      console.log(`  Test:                   ${testPath} (${testPuzzles.length} puzzles)`)
+    }
 
     // Print stats
     const stats = {
