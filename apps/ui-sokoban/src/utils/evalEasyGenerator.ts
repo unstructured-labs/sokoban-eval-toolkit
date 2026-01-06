@@ -1,4 +1,5 @@
 import type { Box, CellTerrain, Difficulty, Position, SokobanLevel } from '../types'
+import { canBePushed, countAdjacentFloors, isConnected, randomInt, shuffle } from './generatorUtils'
 import { solvePuzzle } from './sokobanSolver'
 
 // Configuration for eval-easy level generation
@@ -11,85 +12,6 @@ const CONFIG = {
   maxMoves: 20,
   maxAttempts: 500,
   maxSolverNodes: 50000,
-}
-
-/**
- * Generate a random integer between min and max (inclusive).
- */
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-/**
- * Shuffle an array in place using Fisher-Yates algorithm.
- */
-function shuffle<T>(array: T[]): T[] {
-  const result = [...array]
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[result[i], result[j]] = [result[j], result[i]]
-  }
-  return result
-}
-
-/**
- * Check if all floor cells are connected using BFS flood fill.
- */
-function isConnected(terrain: CellTerrain[][], width: number, height: number): boolean {
-  // Find first floor cell
-  let startX = -1
-  let startY = -1
-  let totalFloors = 0
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (terrain[y][x] !== 'wall') {
-        totalFloors++
-        if (startX === -1) {
-          startX = x
-          startY = y
-        }
-      }
-    }
-  }
-
-  if (startX === -1) return false
-
-  // BFS to count reachable floors
-  const visited = new Set<string>()
-  const queue: [number, number][] = [[startX, startY]]
-  visited.add(`${startX},${startY}`)
-
-  const dirs = [
-    [0, -1],
-    [0, 1],
-    [-1, 0],
-    [1, 0],
-  ]
-
-  while (queue.length > 0) {
-    const current = queue.shift()
-    if (!current) break
-    const [x, y] = current
-    for (const [dx, dy] of dirs) {
-      const nx = x + dx
-      const ny = y + dy
-      const key = `${nx},${ny}`
-      if (
-        nx >= 0 &&
-        nx < width &&
-        ny >= 0 &&
-        ny < height &&
-        terrain[ny][nx] !== 'wall' &&
-        !visited.has(key)
-      ) {
-        visited.add(key)
-        queue.push([nx, ny])
-      }
-    }
-  }
-
-  return visited.size === totalFloors
 }
 
 /**
@@ -153,40 +75,6 @@ function generateTerrain(width: number, height: number): CellTerrain[][] {
   }
 
   return terrain
-}
-
-/**
- * Check if a box at position can be pushed (has opposing floors).
- */
-function canBePushed(terrain: CellTerrain[][], pos: Position): boolean {
-  const cell = (x: number, y: number) => terrain[y]?.[x]
-  const isFloorOrGoal = (x: number, y: number) => {
-    const c = cell(x, y)
-    return c === 'floor' || c === 'goal'
-  }
-
-  const canPushHorizontal = isFloorOrGoal(pos.x - 1, pos.y) && isFloorOrGoal(pos.x + 1, pos.y)
-  const canPushVertical = isFloorOrGoal(pos.x, pos.y - 1) && isFloorOrGoal(pos.x, pos.y + 1)
-
-  return canPushHorizontal || canPushVertical
-}
-
-/**
- * Count adjacent floor/goal cells.
- */
-function countAdjacentFloors(terrain: CellTerrain[][], x: number, y: number): number {
-  let count = 0
-  const dirs = [
-    { dx: 0, dy: -1 },
-    { dx: 0, dy: 1 },
-    { dx: -1, dy: 0 },
-    { dx: 1, dy: 0 },
-  ]
-  for (const { dx, dy } of dirs) {
-    const cell = terrain[y + dy]?.[x + dx]
-    if (cell === 'floor' || cell === 'goal') count++
-  }
-  return count
 }
 
 /**

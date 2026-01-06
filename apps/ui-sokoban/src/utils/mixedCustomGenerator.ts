@@ -1,4 +1,5 @@
 import type { Box, CellTerrain, Difficulty, Position, SokobanLevel } from '../types'
+import { findFloorPositions, getReachablePositions, randomInt, shuffle } from './generatorUtils'
 import { solvePuzzle } from './sokobanSolver'
 
 // Configuration for mixed-custom level generation
@@ -13,32 +14,13 @@ const CONFIG = {
   maxSolverNodes: 100000,
 }
 
-// Direction vectors
-const DIRS = [
+// Direction vectors for maze generation (uses row/col convention)
+const MAZE_DIRS = [
   { dr: -1, dc: 0 }, // up
   { dr: 1, dc: 0 }, // down
   { dr: 0, dc: -1 }, // left
   { dr: 0, dc: 1 }, // right
 ]
-
-/**
- * Generate a random integer between min and max (inclusive).
- */
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-/**
- * Shuffle an array using Fisher-Yates algorithm.
- */
-function shuffle<T>(array: T[]): T[] {
-  const result = [...array]
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[result[i], result[j]] = [result[j], result[i]]
-  }
-  return result
-}
 
 /**
  * Generate a maze using recursive backtracking.
@@ -49,7 +31,7 @@ function generateMaze(height: number, width: number): string[][] {
 
   function carve(r: number, c: number) {
     grid[r][c] = ' '
-    const shuffledDirs = shuffle([...DIRS])
+    const shuffledDirs = shuffle([...MAZE_DIRS])
 
     for (const { dr, dc } of shuffledDirs) {
       const nr = r + dr * 2
@@ -67,52 +49,6 @@ function generateMaze(height: number, width: number): string[][] {
 }
 
 /**
- * Find all floor positions in the grid.
- */
-function findFloors(grid: string[][]): Position[] {
-  const floors: Position[] = []
-  for (let y = 0; y < grid.length; y++) {
-    for (let x = 0; x < grid[0].length; x++) {
-      if (grid[y][x] === ' ' || grid[y][x] === '.') {
-        floors.push({ x, y })
-      }
-    }
-  }
-  return floors
-}
-
-/**
- * Get all positions reachable by player using BFS flood fill.
- */
-function getReachable(grid: string[][], player: Position, boxes: Position[]): Set<string> {
-  const visited = new Set<string>([`${player.x},${player.y}`])
-  const queue: Position[] = [player]
-
-  while (queue.length > 0) {
-    const curr = queue.shift()
-    if (!curr) break
-
-    for (const { dr, dc } of DIRS) {
-      const nx = curr.x + dc
-      const ny = curr.y + dr
-      const key = `${nx},${ny}`
-
-      const cell = grid[ny]?.[nx]
-      if (
-        (cell === ' ' || cell === '.') &&
-        !boxes.some((b) => b.x === nx && b.y === ny) &&
-        !visited.has(key)
-      ) {
-        visited.add(key)
-        queue.push({ x: nx, y: ny })
-      }
-    }
-  }
-
-  return visited
-}
-
-/**
  * Find all valid "pull" moves (reverse of push).
  */
 function findValidPulls(
@@ -120,11 +56,11 @@ function findValidPulls(
   player: Position,
   boxes: Position[],
 ): { player: Position; boxes: Position[] }[] {
-  const reachable = getReachable(grid, player, boxes)
+  const reachable = getReachablePositions(grid, player, boxes)
   const pulls: { player: Position; boxes: Position[] }[] = []
 
   boxes.forEach((box, idx) => {
-    for (const d of DIRS) {
+    for (const d of MAZE_DIRS) {
       const pFrom: Position = { x: box.x + d.dc, y: box.y + d.dr }
       const pTo: Position = { x: box.x + 2 * d.dc, y: box.y + 2 * d.dr }
 
@@ -245,7 +181,7 @@ export function generateMixedCustomLevel(): SokobanLevel {
 
     // Generate maze
     const grid = generateMaze(size, size)
-    const floors = findFloors(grid)
+    const floors = findFloorPositions(grid)
 
     // Need enough floors for boxes, goals, and player
     if (floors.length < numBoxes * 2 + 1) {
