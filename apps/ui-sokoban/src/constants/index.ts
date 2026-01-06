@@ -16,6 +16,17 @@ export const COLORS = {
   boxBorder: '#fbbf24',
 } as const
 
+// Box colors by type
+export const BOX_COLORS: Record<
+  import('@src/types').BoxColor,
+  { bg: string; bgOnGoal: string; border: string }
+> = {
+  orange: { bg: '#f97316', bgOnGoal: '#22c55e', border: '#fbbf24' },
+  purple: { bg: '#a855f7', bgOnGoal: '#22c55e', border: '#c084fc' },
+  emerald: { bg: '#10b981', bgOnGoal: '#22c55e', border: '#34d399' },
+  sky: { bg: '#0ea5e9', bgOnGoal: '#22c55e', border: '#38bdf8' },
+} as const
+
 // Difficulty display names
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   'eval-easy': 'Eval Easy',

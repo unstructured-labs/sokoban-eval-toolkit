@@ -1,4 +1,4 @@
-import type { CellTerrain, Difficulty, GameState, Position, SokobanLevel } from '@src/types'
+import type { Box, CellTerrain, Difficulty, GameState, Position, SokobanLevel } from '@src/types'
 
 /**
  * Boxoban ASCII format:
@@ -24,7 +24,7 @@ export function parseLevel(
 
   const terrain: CellTerrain[][] = []
   let playerStart: Position | null = null
-  const boxStarts: Position[] = []
+  const boxStarts: Box[] = []
   const goals: Position[] = []
 
   for (let y = 0; y < height; y++) {
@@ -52,13 +52,13 @@ export function parseLevel(
 
         case '$': // box on floor
           row.push('floor')
-          boxStarts.push({ x, y })
+          boxStarts.push({ x, y, color: 'orange' })
           break
 
         case '*': // box on goal
           row.push('goal')
           goals.push({ x, y })
-          boxStarts.push({ x, y })
+          boxStarts.push({ x, y, color: 'orange' })
           break
 
         case '.': // empty goal

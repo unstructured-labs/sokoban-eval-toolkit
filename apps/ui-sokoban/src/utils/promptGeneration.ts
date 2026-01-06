@@ -1,5 +1,21 @@
-import type { GameState, PromptOptions } from '@src/types'
+import type { BoxColor, GameState, PromptOptions } from '@src/types'
 import { gameStateToAscii } from './levelParser'
+
+// Box color display names for prompts
+const BOX_COLOR_NAMES: Record<BoxColor, string> = {
+  orange: 'Orange',
+  purple: 'Purple',
+  emerald: 'Emerald',
+  sky: 'Sky',
+}
+
+// Box color symbols for ASCII representation (first letter, uppercase)
+const BOX_COLOR_SYMBOLS: Record<BoxColor, string> = {
+  orange: 'O',
+  purple: 'P',
+  emerald: 'E',
+  sky: 'S',
+}
 
 // Cipher symbol mapping (non-standard symbols to replace standard Sokoban notation)
 const CIPHER_MAP = {
@@ -36,15 +52,81 @@ function getGoalsFromTerrain(state: GameState): { x: number; y: number }[] {
 
 /**
  * Generate coordinate locations format representation using r1c4 notation.
+ * Includes box colors for the colored variant.
  */
 function generateCoordinateLocationsFormat(state: GameState): string {
   const goals = getGoalsFromTerrain(state)
   const parts: string[] = []
   parts.push(`Board: ${state.level.height} rows × ${state.level.width} columns`)
   parts.push(`Player: ${toRowCol(state.playerPos.x, state.playerPos.y)}`)
-  parts.push(`Boxes: ${state.boxes.map((b) => toRowCol(b.x, b.y)).join(', ')}`)
+
+  // Group boxes by color for clearer representation
+  const boxesByColor = new Map<BoxColor, { x: number; y: number }[]>()
+  for (const box of state.boxes) {
+    const existing = boxesByColor.get(box.color) || []
+    existing.push({ x: box.x, y: box.y })
+    boxesByColor.set(box.color, existing)
+  }
+
+  // List boxes with their colors
+  const boxDescriptions: string[] = []
+  for (const [color, boxes] of boxesByColor) {
+    const positions = boxes.map((b) => toRowCol(b.x, b.y)).join(', ')
+    boxDescriptions.push(`${BOX_COLOR_NAMES[color]} (${BOX_COLOR_SYMBOLS[color]}): ${positions}`)
+  }
+  parts.push(`Boxes:\n  ${boxDescriptions.join('\n  ')}`)
+
   parts.push(`Goals: ${goals.map((g) => toRowCol(g.x, g.y)).join(', ')}`)
   return parts.join('\n')
+}
+
+/**
+ * Check if the puzzle has multiple box colors (colored variant).
+ */
+function hasMultipleColors(state: GameState): boolean {
+  if (state.boxes.length <= 1) return false
+  const firstColor = state.boxes[0]?.color
+  return state.boxes.some((b) => b.color !== firstColor)
+}
+
+/**
+ * Generate ASCII grid with colored box symbols.
+ * Uses O, P, E, S for Orange, Purple, Emerald, Sky boxes.
+ */
+function generateColoredAsciiGrid(state: GameState): string {
+  const { level, playerPos, boxes } = state
+  const lines: string[] = []
+
+  for (let y = 0; y < level.height; y++) {
+    let line = ''
+    for (let x = 0; x < level.width; x++) {
+      const terrain = level.terrain[y]?.[x] || 'floor'
+      const isPlayer = playerPos.x === x && playerPos.y === y
+      const box = boxes.find((b) => b.x === x && b.y === y)
+      const isGoal = terrain === 'goal'
+
+      if (terrain === 'wall') {
+        line += '#'
+      } else if (isPlayer && isGoal) {
+        line += '+'
+      } else if (isPlayer) {
+        line += '@'
+      } else if (box && isGoal) {
+        // Box on goal - use lowercase color symbol
+        line += BOX_COLOR_SYMBOLS[box.color].toLowerCase()
+      } else if (box) {
+        // Box not on goal - use uppercase color symbol
+        line += BOX_COLOR_SYMBOLS[box.color]
+      } else if (isGoal) {
+        line += '.'
+      } else {
+        line += '-'
+      }
+    }
+    lines.push(`${line}|`)
+  }
+
+  return lines.join('\n')
 }
 
 /**
@@ -70,6 +152,9 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   // Use cipher symbols if enabled
   const useCipher = options.cipherSymbols
 
+  // Check if this is a colored variant puzzle
+  const isColoredVariant = hasMultipleColors(state)
+
   // Symbol definitions based on mode
   const symbols = useCipher
     ? {
@@ -92,11 +177,21 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
       }
 
   // Header
-  parts.push('# Sokoban Puzzle')
-  parts.push('')
-  parts.push(
-    `You are solving a Sokoban puzzle. Push all boxes (${symbols.box}) onto goals (${symbols.goal}) to win.`,
-  )
+  if (isColoredVariant) {
+    parts.push('# Colored Sokoban Puzzle (Special Variant)')
+    parts.push('')
+    parts.push('You are solving a COLORED Sokoban variant. Push all boxes onto goals (.) to win.')
+    parts.push('')
+    parts.push(
+      '**CRITICAL CONSTRAINT:** Boxes of the SAME COLOR cannot be directly adjacent (horizontally or vertically). Diagonal adjacency is allowed. Any move that would place same-colored boxes next to each other is INVALID and will fail.',
+    )
+  } else {
+    parts.push('# Sokoban Puzzle')
+    parts.push('')
+    parts.push(
+      `You are solving a Sokoban puzzle. Push all boxes (${symbols.box}) onto goals (${symbols.goal}) to win.`,
+    )
+  }
   parts.push('')
 
   // Rules
@@ -106,22 +201,39 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   parts.push('- You cannot pull boxes')
   parts.push('- You cannot push more than one box at a time')
   parts.push(`- Walls (${symbols.wall}) are impassable`)
+  if (isColoredVariant) {
+    parts.push(
+      '- **SAME-COLOR ADJACENCY RULE:** You CANNOT push a box to a position where it would be directly adjacent (up/down/left/right) to another box of the same color. This move will be rejected.',
+    )
+  }
   parts.push('')
 
   // Current state representation
   if (options.asciiGrid) {
     parts.push('## Current State (ASCII Grid)')
     parts.push('```')
-    const gridAscii = gameStateToAscii(state)
-    parts.push(useCipher ? applyCipherSymbols(gridAscii) : gridAscii)
+    // Use colored grid for colored variant, standard grid otherwise
+    if (isColoredVariant && !useCipher) {
+      parts.push(generateColoredAsciiGrid(state))
+    } else {
+      const gridAscii = gameStateToAscii(state)
+      parts.push(useCipher ? applyCipherSymbols(gridAscii) : gridAscii)
+    }
     parts.push('```')
     parts.push('')
     parts.push('Legend:')
     parts.push(`- ${symbols.wall} = Wall`)
     parts.push(`- ${symbols.player} = Player`)
-    parts.push(`- ${symbols.box} = Box`)
+    if (isColoredVariant && !useCipher) {
+      parts.push('- O = Orange box, o = Orange box on goal')
+      parts.push('- P = Purple box, p = Purple box on goal')
+      parts.push('- E = Emerald box, e = Emerald box on goal')
+      parts.push('- S = Sky box, s = Sky box on goal')
+    } else {
+      parts.push(`- ${symbols.box} = Box`)
+      parts.push(`- ${symbols.boxOnGoal} = Box on Goal`)
+    }
     parts.push(`- ${symbols.goal} = Goal (for boxes)`)
-    parts.push(`- ${symbols.boxOnGoal} = Box on Goal`)
     parts.push(`- ${symbols.playerOnGoal} = Player on Goal`)
     parts.push(`- ${symbols.floor} = Floor`)
     parts.push('- | = Row boundary (end of each row)')

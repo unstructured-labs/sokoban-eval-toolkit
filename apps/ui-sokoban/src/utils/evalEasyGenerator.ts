@@ -1,4 +1,4 @@
-import type { CellTerrain, Difficulty, Position, SokobanLevel } from '../types'
+import type { Box, CellTerrain, Difficulty, Position, SokobanLevel } from '../types'
 import { solvePuzzle } from './sokobanSolver'
 
 // Configuration for eval-easy level generation
@@ -200,7 +200,7 @@ function tryPlaceEntities(
 ): {
   terrain: CellTerrain[][]
   goals: Position[]
-  boxes: Position[]
+  boxes: Box[]
   playerPos: Position
 } | null {
   const terrainCopy: CellTerrain[][] = terrain.map((row) => [...row])
@@ -235,7 +235,7 @@ function tryPlaceEntities(
   if (goals.length < numBoxes) return null
 
   // Place boxes (not on goals, not adjacent to each other)
-  const boxes: Position[] = []
+  const boxes: Box[] = []
   const usedPositions = new Set(goals.map((g) => `${g.x},${g.y}`))
 
   for (let i = numBoxes; i < shuffledFloors.length && boxes.length < numBoxes; i++) {
@@ -251,7 +251,7 @@ function tryPlaceEntities(
     // Check box can be pushed
     if (!canBePushed(terrainCopy, pos)) continue
 
-    boxes.push(pos)
+    boxes.push({ ...pos, color: 'orange' })
     usedPositions.add(key)
   }
 
@@ -331,7 +331,7 @@ function createFallbackPuzzle(totalAttempts: number): SokobanLevel {
     height,
     terrain,
     playerStart: { x: 2, y: 3 },
-    boxStarts: [{ x: 4, y: 3 }],
+    boxStarts: [{ x: 4, y: 3, color: 'orange' }],
     goals: [{ x: 5, y: 3 }],
     difficulty: 'eval-easy' as Difficulty,
     fileSource: 'generated',

@@ -1,4 +1,4 @@
-import type { CellTerrain, Difficulty, Position } from '@src/types'
+import type { Box, CellTerrain, Difficulty, Position } from '@src/types'
 import { v4 as uuidv4 } from 'uuid'
 
 const LAYOUTS_STORAGE_KEY = 'sokoban_layouts'
@@ -12,7 +12,7 @@ export interface SavedLayout {
   height: number
   terrain: CellTerrain[][]
   playerStart: Position
-  boxStarts: Position[]
+  boxStarts: Box[]
   goals: Position[]
 }
 

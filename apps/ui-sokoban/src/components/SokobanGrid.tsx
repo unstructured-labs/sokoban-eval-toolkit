@@ -1,5 +1,5 @@
-import { CELL_SIZE } from '@src/constants'
-import type { GameState, Position } from '@src/types'
+import { BOX_COLORS, CELL_SIZE } from '@src/constants'
+import type { Box, BoxColor, GameState, Position } from '@src/types'
 
 interface SelectedEntity {
   type: 'player' | 'box' | 'goal'
@@ -19,7 +19,7 @@ interface SokobanGridProps {
   onCellDragEnter?: (x: number, y: number) => void
   onDragEnd?: () => void
   isDragging?: boolean
-  addMode?: 'goal' | 'box' | 'remove' | null
+  addMode?: 'goal' | 'box' | BoxColor | 'wall' | 'remove' | null
 }
 
 export function SokobanGrid({
@@ -50,6 +50,9 @@ export function SokobanGrid({
 
   const isHighlighted = (x: number, y: number) =>
     highlightedCells.some((c) => c.x === x && c.y === y)
+
+  const getBoxAt = (x: number, y: number): Box | undefined =>
+    boxes.find((b) => b.x === x && b.y === y)
 
   const isBox = (x: number, y: number) => boxes.some((b) => b.x === x && b.y === y)
 
@@ -110,8 +113,16 @@ export function SokobanGrid({
             const isBorderCell =
               x === 0 || x === level.width - 1 || y === 0 || y === level.height - 1
             const canAddGoal = addMode === 'goal' && !isWall && !cellIsGoal && !isBorderCell
+            const isBoxAddMode =
+              addMode === 'box' ||
+              addMode === 'orange' ||
+              addMode === 'purple' ||
+              addMode === 'emerald' ||
+              addMode === 'sky'
             const canAddBox =
-              addMode === 'box' && !isWall && !cellIsPlayer && !cellHasBox && !isBorderCell
+              isBoxAddMode && !isWall && !cellIsPlayer && !cellHasBox && !isBorderCell
+            const canToggleWall =
+              addMode === 'wall' && !isBorderCell && !cellIsPlayer && !cellHasBox && !cellIsGoal
             const canRemove = addMode === 'remove' && (cellIsGoal || cellHasBox)
 
             return (
@@ -124,7 +135,14 @@ export function SokobanGrid({
                     : cellIsHighlighted
                       ? 'hsl(var(--primary) / 0.2)'
                       : 'hsl(var(--sokoban-floor))',
-                  cursor: canAddGoal || canAddBox ? 'crosshair' : canRemove ? 'pointer' : undefined,
+                  cursor:
+                    canAddGoal || canAddBox
+                      ? 'crosshair'
+                      : canToggleWall
+                        ? 'cell'
+                        : canRemove
+                          ? 'pointer'
+                          : undefined,
                 }}
                 onClick={canClick ? () => onCellClick?.(x, y) : undefined}
                 onMouseDown={
@@ -176,43 +194,43 @@ export function SokobanGrid({
                 )}
 
                 {/* Box */}
-                {cellHasBox && (
-                  <div
-                    className="absolute rounded-sm flex items-center justify-center font-bold text-white shadow-md transition-all duration-150"
-                    style={{
-                      inset: 4,
-                      backgroundColor: cellBoxOnGoal
-                        ? 'hsl(var(--sokoban-box-done))'
-                        : 'hsl(var(--sokoban-box))',
-                      border: isSelectedBox
-                        ? '3px solid #facc15'
-                        : cellBoxOnGoal
-                          ? 'none'
-                          : '2px solid hsl(var(--sokoban-box) / 0.7)',
-                      boxShadow: isSelectedBox ? '0 0 8px #facc15' : undefined,
-                    }}
-                  >
-                    {cellBoxOnGoal && <span className="text-xs">✓</span>}
-                  </div>
-                )}
+                {cellHasBox &&
+                  (() => {
+                    const box = getBoxAt(x, y)
+                    const boxColors = box ? BOX_COLORS[box.color] : BOX_COLORS.orange
+                    return (
+                      <div
+                        className="absolute rounded-sm flex items-center justify-center font-bold text-white shadow-md transition-all duration-150"
+                        style={{
+                          inset: 4,
+                          backgroundColor: boxColors.bg,
+                          border: isSelectedBox
+                            ? '3px solid #facc15'
+                            : cellBoxOnGoal
+                              ? '2px solid #22c55e'
+                              : `2px solid ${boxColors.border}`,
+                          boxShadow: isSelectedBox
+                            ? '0 0 8px #facc15'
+                            : cellBoxOnGoal
+                              ? '0 0 6px #22c55e'
+                              : undefined,
+                        }}
+                      >
+                        {cellBoxOnGoal && <span className="text-xs">✓</span>}
+                      </div>
+                    )
+                  })()}
 
                 {/* Player */}
                 {cellIsPlayer && (
                   <div
-                    className="absolute rounded-full flex items-center justify-center shadow-lg"
+                    className="absolute flex items-center justify-center text-2xl select-none"
                     style={{
-                      inset: 4,
-                      backgroundColor: 'hsl(var(--sokoban-player))',
-                      border: isSelectedPlayer
-                        ? '3px solid #facc15'
-                        : '3px solid hsl(var(--sokoban-player) / 0.5)',
-                      boxShadow: isSelectedPlayer ? '0 0 8px #facc15' : undefined,
+                      inset: 2,
+                      filter: isSelectedPlayer ? 'drop-shadow(0 0 6px #facc15)' : undefined,
                     }}
                   >
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: 'hsl(var(--sokoban-player) / 0.3)' }}
-                    />
+                    👷
                   </div>
                 )}
               </div>

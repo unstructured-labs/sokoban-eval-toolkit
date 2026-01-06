@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { CellTerrain, SokobanLevel } from '../../types'
+import type { Box, CellTerrain, SokobanLevel } from '../../types'
 import { solvePuzzle } from '../sokobanSolver'
 
 /**
@@ -24,7 +24,7 @@ function createLevelFromAscii(ascii: string, id = 'test'): SokobanLevel {
 
   const terrain: CellTerrain[][] = []
   let playerStart = { x: 0, y: 0 }
-  const boxStarts: { x: number; y: number }[] = []
+  const boxStarts: Box[] = []
   const goals: { x: number; y: number }[] = []
 
   for (let y = 0; y < height; y++) {
@@ -48,12 +48,12 @@ function createLevelFromAscii(ascii: string, id = 'test'): SokobanLevel {
           break
         case '$':
           row.push('floor')
-          boxStarts.push({ x, y })
+          boxStarts.push({ x, y, color: 'orange' })
           break
         case '*':
           row.push('goal')
           goals.push({ x, y })
-          boxStarts.push({ x, y })
+          boxStarts.push({ x, y, color: 'orange' })
           break
         case '+':
           row.push('goal')

@@ -4,8 +4,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@sokoban-eval-toolkit/ui-library/components/card'
-import { MOVE_KEYS } from '@src/constants'
-import type { CellTerrain, GameState, MoveDirection, Position, SokobanLevel } from '@src/types'
+import { BOX_COLORS, MOVE_KEYS } from '@src/constants'
+import type {
+  Box,
+  BoxColor,
+  CellTerrain,
+  GameState,
+  MoveDirection,
+  Position,
+  SokobanLevel,
+} from '@src/types'
 import { generateEvalEasyLevel } from '@src/utils/evalEasyGenerator'
 import {
   executeMove,
@@ -45,7 +53,7 @@ export function SokobanGame() {
     y: number
   } | null>(null)
   const [isDraggingWalls, setIsDraggingWalls] = useState(false)
-  const [addMode, setAddMode] = useState<'goal' | 'box' | 'remove' | null>(null)
+  const [addMode, setAddMode] = useState<'goal' | 'box' | BoxColor | 'wall' | 'remove' | null>(null)
   const solutionMovesRef = useRef<MoveDirection[]>([])
   const solutionIndexRef = useRef(0)
   const solutionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -236,6 +244,13 @@ export function SokobanGame() {
       const layout = loadLayout(name)
       if (!layout) return
 
+      // Ensure boxes have colors (backward compatibility with old saves)
+      const boxStarts: Box[] = layout.boxStarts.map((b) => ({
+        x: b.x,
+        y: b.y,
+        color: b.color ?? 'orange',
+      }))
+
       // Create a SokobanLevel from the saved layout
       const level: SokobanLevel = {
         id: `saved-${layout.id}`,
@@ -243,7 +258,7 @@ export function SokobanGame() {
         height: layout.height,
         terrain: layout.terrain as CellTerrain[][],
         playerStart: layout.playerStart,
-        boxStarts: layout.boxStarts,
+        boxStarts,
         goals: layout.goals,
         difficulty: layout.difficulty,
         fileSource: 'saved',
@@ -379,12 +394,18 @@ export function SokobanGame() {
       y: height - 1 - pos.y,
     })
 
+    // Transform box helper (preserves color)
+    const flipBox = (box: Box): Box => ({
+      ...flipPos(box),
+      color: box.color,
+    })
+
     // Transform all positions
     const newPlayerPos = flipPos(playerPos)
-    const newBoxes = boxes.map(flipPos)
+    const newBoxes = boxes.map(flipBox)
     const newGoals = level.goals.map(flipPos)
     const newPlayerStart = flipPos(level.playerStart)
-    const newBoxStarts = level.boxStarts.map(flipPos)
+    const newBoxStarts = level.boxStarts.map(flipBox)
 
     const newLevel: SokobanLevel = {
       ...level,
@@ -433,12 +454,18 @@ export function SokobanGame() {
       y: pos.x,
     })
 
+    // Transform box helper (preserves color)
+    const rotateBox = (box: Box): Box => ({
+      ...rotatePos(box),
+      color: box.color,
+    })
+
     // Transform all positions
     const newPlayerPos = rotatePos(playerPos)
-    const newBoxes = boxes.map(rotatePos)
+    const newBoxes = boxes.map(rotateBox)
     const newGoals = level.goals.map(rotatePos)
     const newPlayerStart = rotatePos(level.playerStart)
-    const newBoxStarts = level.boxStarts.map(rotatePos)
+    const newBoxStarts = level.boxStarts.map(rotateBox)
 
     const newLevel: SokobanLevel = {
       ...level,
@@ -514,6 +541,40 @@ export function SokobanGame() {
           return
         }
 
+        // Handle wall mode - toggle between wall and floor
+        if (addMode === 'wall') {
+          // Can't modify border cells
+          if (
+            x === 0 ||
+            x === gameState.level.width - 1 ||
+            y === 0 ||
+            y === gameState.level.height - 1
+          ) {
+            return
+          }
+
+          // Can't place wall on player, box, or goal
+          if (isPlayerHere || isBoxHere || isGoalHere) return
+
+          // Toggle between wall and floor
+          const newTerrain = isWall ? 'floor' : 'wall'
+          const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
+            rowY === y ? row.map((cell, cellX) => (cellX === x ? newTerrain : cell)) : row,
+          )
+
+          const newLevel = {
+            ...gameState.level,
+            terrain: newTerrainGrid,
+          }
+
+          setGameState({
+            ...gameState,
+            level: newLevel,
+          })
+          setCurrentLevel(newLevel)
+          return
+        }
+
         // Can't add on border cells
         if (
           x === 0 ||
@@ -546,12 +607,22 @@ export function SokobanGame() {
             level: newLevel,
           })
           setCurrentLevel(newLevel)
-        } else if (addMode === 'box') {
+        } else if (
+          addMode === 'box' ||
+          addMode === 'orange' ||
+          addMode === 'purple' ||
+          addMode === 'emerald' ||
+          addMode === 'sky'
+        ) {
           // Can't add box where player or another box exists
           if (isPlayerHere || isBoxHere) return
 
-          // Add box to the array
-          const newBoxes = [...gameState.boxes, { x, y }]
+          // Determine box color: 'box' defaults to orange, otherwise use the specific color
+          const boxColor: BoxColor = addMode === 'box' ? 'orange' : addMode
+
+          // Add box to the array with color
+          const newBox: Box = { x, y, color: boxColor }
+          const newBoxes = [...gameState.boxes, newBox]
           const newLevel = {
             ...gameState.level,
             boxStarts: newBoxes,
@@ -635,7 +706,9 @@ export function SokobanGame() {
           setCurrentLevel(newLevel)
         } else if (selectedEntity.type === 'box' && selectedEntity.index !== undefined) {
           const newBoxes = [...gameState.boxes]
-          newBoxes[selectedEntity.index] = { x, y }
+          const existingBox = newBoxes[selectedEntity.index]
+          // Preserve the box color when moving
+          newBoxes[selectedEntity.index] = { x, y, color: existingBox?.color ?? 'orange' }
           const newLevel = {
             ...gameState.level,
             boxStarts: newBoxes,
@@ -781,6 +854,17 @@ export function SokobanGame() {
                 <>
                   <button
                     type="button"
+                    onClick={() => setAddMode(addMode === 'wall' ? null : 'wall')}
+                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                      addMode === 'wall'
+                        ? 'bg-[hsl(var(--sokoban-wall))]/40 text-foreground border-[hsl(var(--sokoban-wall))]'
+                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                    }`}
+                  >
+                    Wall
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setAddMode(addMode === 'goal' ? null : 'goal')}
                     className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
                       addMode === 'goal'
@@ -790,17 +874,25 @@ export function SokobanGame() {
                   >
                     + Goal
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setAddMode(addMode === 'box' ? null : 'box')}
-                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
-                      addMode === 'box'
-                        ? 'bg-[hsl(var(--sokoban-box))]/20 text-[hsl(var(--sokoban-box))] border-[hsl(var(--sokoban-box))]/50'
-                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
-                    }`}
-                  >
-                    + Box
-                  </button>
+                  {/* Colored box buttons */}
+                  {(['orange', 'purple', 'emerald', 'sky'] as const).map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setAddMode(addMode === color ? null : color)}
+                      className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                        addMode === color ? 'border-2' : 'bg-muted/50 hover:bg-muted border-border'
+                      }`}
+                      style={{
+                        backgroundColor:
+                          addMode === color ? `${BOX_COLORS[color].bg}33` : undefined,
+                        color: BOX_COLORS[color].bg,
+                        borderColor: addMode === color ? BOX_COLORS[color].bg : undefined,
+                      }}
+                    >
+                      + {color.charAt(0).toUpperCase() + color.slice(1)}
+                    </button>
+                  ))}
                   <button
                     type="button"
                     onClick={() => setAddMode(addMode === 'remove' ? null : 'remove')}
@@ -866,15 +958,20 @@ export function SokobanGame() {
           />
 
           {/* Legend */}
-          <div className="mt-3 flex gap-4 items-center text-[11px] text-muted-foreground">
+          <div className="mt-3 flex gap-4 items-center text-[11px] text-muted-foreground flex-wrap justify-center">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-[hsl(var(--sokoban-player))]" />
+              <span className="text-sm">👷</span>
               <span>Player</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm bg-[hsl(var(--sokoban-box))]" />
-              <span>Box</span>
-            </div>
+            {(['orange', 'purple', 'emerald', 'sky'] as const).map((color) => (
+              <div key={color} className="flex items-center gap-1.5">
+                <div
+                  className="w-3 h-3 rounded-sm"
+                  style={{ backgroundColor: BOX_COLORS[color].bg }}
+                />
+                <span>{color.charAt(0).toUpperCase() + color.slice(1)}</span>
+              </div>
+            ))}
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-full bg-[hsl(var(--sokoban-goal))] opacity-60" />
               <span>Goal</span>

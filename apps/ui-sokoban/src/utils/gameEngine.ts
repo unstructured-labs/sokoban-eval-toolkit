@@ -1,5 +1,6 @@
 import { DIRECTION_VECTORS } from '@src/constants'
 import type {
+  Box,
   GameState,
   MoveDirection,
   MoveRecord,
@@ -41,9 +42,9 @@ function isWall(pos: Position, level: SokobanLevel): boolean {
 }
 
 /**
- * Check if a position has a box.
+ * Check if a position has a box. Returns the index of the box, or -1 if not found.
  */
-function hasBox(pos: Position, boxes: Position[]): number {
+function hasBox(pos: Position, boxes: Box[]): number {
   return boxes.findIndex((b) => b.x === pos.x && b.y === pos.y)
 }
 
@@ -56,6 +57,50 @@ function getNewPosition(pos: Position, direction: MoveDirection): Position {
     x: pos.x + vector.dx,
     y: pos.y + vector.dy,
   }
+}
+
+/**
+ * Check if a box at a given position would be adjacent (horizontally or vertically)
+ * to another box of the same color.
+ * Returns true if there's a same-color adjacency violation.
+ */
+export function hasSameColorAdjacency(newBox: Box, boxes: Box[], excludeIndex?: number): boolean {
+  const adjacentPositions = [
+    { x: newBox.x, y: newBox.y - 1 }, // up
+    { x: newBox.x, y: newBox.y + 1 }, // down
+    { x: newBox.x - 1, y: newBox.y }, // left
+    { x: newBox.x + 1, y: newBox.y }, // right
+  ]
+
+  for (let i = 0; i < boxes.length; i++) {
+    // Skip the box being moved (it will be at the new position)
+    if (i === excludeIndex) continue
+
+    const otherBox = boxes[i]
+    // Check if this box is adjacent and has the same color
+    if (otherBox.color === newBox.color) {
+      for (const adj of adjacentPositions) {
+        if (otherBox.x === adj.x && otherBox.y === adj.y) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
+/**
+ * Check if any boxes in the current state violate the same-color adjacency rule.
+ * Returns true if there are any violations.
+ */
+export function hasAnySameColorAdjacency(boxes: Box[]): boolean {
+  for (let i = 0; i < boxes.length; i++) {
+    if (hasSameColorAdjacency(boxes[i], boxes, i)) {
+      return true
+    }
+  }
+  return false
 }
 
 /**
@@ -102,12 +147,26 @@ export function validateMove(state: GameState, direction: MoveDirection): MoveVa
     return { valid: false, isPush: true, newPlayerPos, error: 'Cannot push box into another box' }
   }
 
+  // Get the pushed box and create the new box position with color
+  const pushedBox = boxes[boxIndex]
+  const newBox: Box = { ...newBoxPos, color: pushedBox.color }
+
+  // Check for same-color adjacency violation
+  if (hasSameColorAdjacency(newBox, boxes, boxIndex)) {
+    return {
+      valid: false,
+      isPush: true,
+      newPlayerPos,
+      error: 'Cannot push box adjacent to same-colored box',
+    }
+  }
+
   // Valid push
   return {
     valid: true,
     isPush: true,
     newPlayerPos,
-    newBoxPos,
+    newBox,
     pushedBoxIndex: boxIndex,
   }
 }
@@ -127,13 +186,13 @@ export function executeMove(
     return null
   }
 
-  const newBoxes = state.boxes.map((b) => ({ ...b }))
-  let previousBoxPos: Position | undefined
+  const newBoxes: Box[] = state.boxes.map((b) => ({ ...b }))
+  let previousBox: Box | undefined
 
   // If it's a push, move the box
-  if (validation.isPush && validation.pushedBoxIndex !== undefined && validation.newBoxPos) {
-    previousBoxPos = { ...newBoxes[validation.pushedBoxIndex] }
-    newBoxes[validation.pushedBoxIndex] = validation.newBoxPos
+  if (validation.isPush && validation.pushedBoxIndex !== undefined && validation.newBox) {
+    previousBox = { ...newBoxes[validation.pushedBoxIndex] }
+    newBoxes[validation.pushedBoxIndex] = validation.newBox
   }
 
   // Create move record
@@ -142,7 +201,7 @@ export function executeMove(
     direction,
     wasPush: validation.isPush,
     previousPlayerPos: { ...state.playerPos },
-    previousBoxPos,
+    previousBox,
     source,
     timestamp: Date.now(),
   }
@@ -177,16 +236,16 @@ export function undoMove(state: GameState): GameState {
   }
 
   const lastMove = state.moveHistory[state.moveHistory.length - 1]
-  const newBoxes = state.boxes.map((b) => ({ ...b }))
+  const newBoxes: Box[] = state.boxes.map((b) => ({ ...b }))
 
-  // If last move was a push, restore box position
-  if (lastMove.wasPush && lastMove.previousBoxPos) {
+  // If last move was a push, restore box position (with color)
+  if (lastMove.wasPush && lastMove.previousBox) {
     // Find the box at its current position and move it back
-    const pushedBoxCurrentPos = getNewPosition(lastMove.previousBoxPos, lastMove.direction)
+    const pushedBoxCurrentPos = getNewPosition(lastMove.previousBox, lastMove.direction)
     const boxIndex = hasBox(pushedBoxCurrentPos, newBoxes)
 
     if (boxIndex !== -1) {
-      newBoxes[boxIndex] = lastMove.previousBoxPos
+      newBoxes[boxIndex] = lastMove.previousBox
     }
   }
 

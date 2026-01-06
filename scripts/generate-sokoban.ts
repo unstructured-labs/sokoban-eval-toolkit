@@ -20,6 +20,7 @@ import { confirm, input, select } from '@inquirer/prompts'
 import { EVAL_OUTPUT_FORMAT_INSTRUCTIONS } from '@sokoban-eval-toolkit/utils'
 
 import type {
+  Box,
   CellTerrain,
   MoveDirection,
   Position,
@@ -62,7 +63,7 @@ interface GeneratedLevel {
   height: number
   terrain: CellTerrain[][]
   playerStart: Position
-  boxStarts: Position[]
+  boxStarts: Box[]
   goals: Position[]
   solutionLength: number
   solution: MoveDirection[]
@@ -96,6 +97,34 @@ function isSolved(boxes: Position[], goals: Position[]): boolean {
 }
 
 /**
+ * Check if a box at a given position would be adjacent (horizontally or vertically)
+ * to another box of the same color.
+ */
+function hasSameColorAdjacency(newBox: Box, boxes: Box[], excludeIndex?: number): boolean {
+  const adjacentPositions = [
+    { x: newBox.x, y: newBox.y - 1 }, // up
+    { x: newBox.x, y: newBox.y + 1 }, // down
+    { x: newBox.x - 1, y: newBox.y }, // left
+    { x: newBox.x + 1, y: newBox.y }, // right
+  ]
+
+  for (let i = 0; i < boxes.length; i++) {
+    if (i === excludeIndex) continue
+
+    const otherBox = boxes[i]
+    if (otherBox.color === newBox.color) {
+      for (const adj of adjacentPositions) {
+        if (otherBox.x === adj.x && otherBox.y === adj.y) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
+/**
  * Replay a solution to validate it actually solves the puzzle.
  * Returns true if the solution leads to a solved state.
  */
@@ -104,7 +133,7 @@ function validateSolution(
   width: number,
   height: number,
   playerStart: Position,
-  boxStarts: Position[],
+  boxStarts: Box[],
   goals: Position[],
   solution: MoveDirection[],
 ): boolean {
@@ -138,8 +167,16 @@ function validateSolution(
         return false
       }
 
-      // Move the box
-      boxes[boxIndex] = { x: newBoxX, y: newBoxY }
+      // Create the new box position with color
+      const newBox: Box = { x: newBoxX, y: newBoxY, color: boxes[boxIndex].color }
+
+      // Check for same-color adjacency violation
+      if (hasSameColorAdjacency(newBox, boxes, boxIndex)) {
+        return false
+      }
+
+      // Move the box (preserving color)
+      boxes[boxIndex] = newBox
     }
 
     // Move the player
@@ -275,7 +312,7 @@ function generateLevel(options: LevelGenOptions): GeneratedLevel | null {
     if (goals.length < numBoxes) continue
 
     // Place boxes (not on goals, not on player)
-    const boxStarts: Position[] = []
+    const boxStarts: Box[] = []
     const usedPositions = new Set([
       `${playerStart.x},${playerStart.y}`,
       ...goals.map((g) => `${g.x},${g.y}`),
@@ -285,7 +322,7 @@ function generateLevel(options: LevelGenOptions): GeneratedLevel | null {
       const pos = shuffledFloors[i]
       const key = `${pos.x},${pos.y}`
       if (!usedPositions.has(key)) {
-        boxStarts.push(pos)
+        boxStarts.push({ ...pos, color: 'orange' })
         usedPositions.add(key)
       }
     }

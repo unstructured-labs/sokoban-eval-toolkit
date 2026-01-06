@@ -32,7 +32,6 @@ import type {
 } from '@src/types'
 import { levelToAsciiWithCoords } from '@src/utils/levelParser'
 import { DEFAULT_PROMPT_OPTIONS, generateSokobanPrompt } from '@src/utils/promptGeneration'
-import { simpleSolve } from '@src/utils/simpleSolver'
 import { type SolutionResult, getSolution } from '@src/utils/solutionCache'
 import { movesToNotation } from '@src/utils/solutionValidator'
 import { AlertCircle, Copy } from 'lucide-react'
@@ -143,25 +142,16 @@ export function AIPanel({
   }, [levelId, onInferenceTimeChange])
 
   // Load solution when level changes (cache first, then solver)
-  // Use simple solver when editing for faster results
+  // Skip solver while editing to keep UI responsive
   useEffect(() => {
     if (!state?.level) {
       setCachedSolution(null)
       return
     }
 
+    // Don't run solver while editing - it's too expensive
     if (isEditing) {
-      const result = simpleSolve(state.level)
-      if (result.solvable && result.solution) {
-        setCachedSolution({
-          found: true,
-          solution: result.solution,
-          moveCount: result.moveCount,
-          source: 'solver',
-        })
-      } else {
-        setCachedSolution({ found: false, hitLimit: false })
-      }
+      setCachedSolution(null)
       return
     }
 

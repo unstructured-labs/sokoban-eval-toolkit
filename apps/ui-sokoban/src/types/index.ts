@@ -4,6 +4,16 @@ export interface Position {
   y: number // row (0-indexed)
 }
 
+// Box colors for visual distinction
+export type BoxColor = 'orange' | 'purple' | 'emerald' | 'sky'
+
+// Box with position and color
+export interface Box {
+  x: number
+  y: number
+  color: BoxColor
+}
+
 // What's in a cell (static terrain)
 export type CellTerrain = 'floor' | 'wall' | 'goal'
 
@@ -14,7 +24,7 @@ export interface SokobanLevel {
   height: number
   terrain: CellTerrain[][] // [row][col] - static terrain only
   playerStart: Position
-  boxStarts: Position[]
+  boxStarts: Box[]
   goals: Position[]
   difficulty: Difficulty
   fileSource: string
@@ -40,7 +50,7 @@ export interface MoveRecord {
   direction: MoveDirection
   wasPush: boolean
   previousPlayerPos: Position
-  previousBoxPos?: Position // only if was a push
+  previousBox?: Box // only if was a push
   source: 'human' | 'ai'
   timestamp: number
 }
@@ -49,7 +59,7 @@ export interface MoveRecord {
 export interface GameState {
   level: SokobanLevel
   playerPos: Position
-  boxes: Position[]
+  boxes: Box[]
   moveHistory: MoveRecord[]
   isWon: boolean
   moveCount: number
@@ -63,7 +73,7 @@ export interface MoveValidationResult {
   valid: boolean
   isPush: boolean
   newPlayerPos: Position
-  newBoxPos?: Position
+  newBox?: Box
   pushedBoxIndex?: number
   error?: string
 }

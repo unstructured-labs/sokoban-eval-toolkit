@@ -1,4 +1,4 @@
-import type { CellTerrain, Difficulty, Position, SokobanLevel } from '../types'
+import type { Box, CellTerrain, Difficulty, Position, SokobanLevel } from '../types'
 import { solvePuzzle } from './sokobanSolver'
 
 // Configuration for mixed-custom level generation
@@ -165,13 +165,16 @@ function buildLevel(
     }),
   )
 
+  // Convert Position[] to Box[] with default orange color
+  const boxStarts: Box[] = boxes.map((b) => ({ ...b, color: 'orange' }))
+
   return {
     id: `mixed-custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     width,
     height,
     terrain,
     playerStart: player,
-    boxStarts: boxes,
+    boxStarts,
     goals,
     difficulty: 'mixed-custom' as Difficulty,
     fileSource: 'generated',
@@ -212,8 +215,8 @@ function createFallbackPuzzle(totalAttempts: number): SokobanLevel {
     terrain,
     playerStart: { x: 2, y: 3 },
     boxStarts: [
-      { x: 4, y: 3 },
-      { x: 4, y: 4 },
+      { x: 4, y: 3, color: 'orange' },
+      { x: 4, y: 4, color: 'orange' },
     ],
     goals: [
       { x: 5, y: 3 },
