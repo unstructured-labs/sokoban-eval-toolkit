@@ -726,8 +726,25 @@ export function AIPanel({
                 Cipher Symbols
               </Label>
             </div>
+            {/* Colored Box Rules option */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="coloredBoxRules"
+                checked={promptOptions.coloredBoxRules}
+                onCheckedChange={() => togglePromptOption('coloredBoxRules')}
+                disabled={isRunning || plannedMoves.length > 0}
+                className="h-3.5 w-3.5"
+              />
+              <Label
+                htmlFor="coloredBoxRules"
+                className={`text-xs ${isRunning || plannedMoves.length > 0 ? 'text-muted-foreground cursor-default' : 'cursor-pointer'}`}
+              >
+                Colored Box Rules
+              </Label>
+            </div>
           </div>
         </div>
+
         <Separator />
 
         {/* Controls */}

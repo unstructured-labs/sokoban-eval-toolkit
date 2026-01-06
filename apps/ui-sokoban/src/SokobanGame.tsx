@@ -324,8 +324,8 @@ export function SokobanGame() {
       // If an entity is selected, don't start wall dragging - let click handler move the entity
       if (selectedEntity) return
 
-      // If add mode is active, don't start wall dragging - let click handler place the entity
-      if (addMode) return
+      // If add mode is active (except wall mode), don't start wall dragging - let click handler place the entity
+      if (addMode && addMode !== 'wall') return
 
       // Don't allow editing border walls
       if (
@@ -370,121 +370,6 @@ export function SokobanGame() {
     window.addEventListener('mouseup', handleGlobalMouseUp)
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
   }, [isDraggingWalls, handleDragEnd])
-
-  // Flip board 180 degrees
-  const handleFlipBoard = useCallback(() => {
-    if (!gameState) return
-
-    const { level, playerPos, boxes } = gameState
-    const { width, height } = level
-
-    // Flip terrain (reverse rows and columns)
-    const newTerrain: CellTerrain[][] = []
-    for (let y = height - 1; y >= 0; y--) {
-      const newRow: CellTerrain[] = []
-      for (let x = width - 1; x >= 0; x--) {
-        newRow.push(level.terrain[y]?.[x] || 'floor')
-      }
-      newTerrain.push(newRow)
-    }
-
-    // Transform position helper
-    const flipPos = (pos: Position): Position => ({
-      x: width - 1 - pos.x,
-      y: height - 1 - pos.y,
-    })
-
-    // Transform box helper (preserves color)
-    const flipBox = (box: Box): Box => ({
-      ...flipPos(box),
-      color: box.color,
-    })
-
-    // Transform all positions
-    const newPlayerPos = flipPos(playerPos)
-    const newBoxes = boxes.map(flipBox)
-    const newGoals = level.goals.map(flipPos)
-    const newPlayerStart = flipPos(level.playerStart)
-    const newBoxStarts = level.boxStarts.map(flipBox)
-
-    const newLevel: SokobanLevel = {
-      ...level,
-      terrain: newTerrain,
-      playerStart: newPlayerStart,
-      boxStarts: newBoxStarts,
-      goals: newGoals,
-    }
-
-    setGameState({
-      ...gameState,
-      level: newLevel,
-      playerPos: newPlayerPos,
-      boxes: newBoxes,
-    })
-    setCurrentLevel(newLevel)
-  }, [gameState])
-
-  // Rotate board 90 degrees clockwise
-  const handleRotateBoard = useCallback(() => {
-    if (!gameState) return
-
-    const { level, playerPos, boxes } = gameState
-    const { width, height } = level
-
-    // Rotate terrain 90 degrees clockwise
-    // New width = old height, new height = old width
-    const newWidth = height
-    const newHeight = width
-    const newTerrain: CellTerrain[][] = []
-
-    for (let newY = 0; newY < newHeight; newY++) {
-      const newRow: CellTerrain[] = []
-      for (let newX = 0; newX < newWidth; newX++) {
-        // For clockwise rotation: new(x,y) = old(height-1-y, x)
-        const oldX = newY
-        const oldY = height - 1 - newX
-        newRow.push(level.terrain[oldY]?.[oldX] || 'floor')
-      }
-      newTerrain.push(newRow)
-    }
-
-    // Transform position helper (clockwise: new(x,y) = (height-1-oldY, oldX))
-    const rotatePos = (pos: Position): Position => ({
-      x: height - 1 - pos.y,
-      y: pos.x,
-    })
-
-    // Transform box helper (preserves color)
-    const rotateBox = (box: Box): Box => ({
-      ...rotatePos(box),
-      color: box.color,
-    })
-
-    // Transform all positions
-    const newPlayerPos = rotatePos(playerPos)
-    const newBoxes = boxes.map(rotateBox)
-    const newGoals = level.goals.map(rotatePos)
-    const newPlayerStart = rotatePos(level.playerStart)
-    const newBoxStarts = level.boxStarts.map(rotateBox)
-
-    const newLevel: SokobanLevel = {
-      ...level,
-      width: newWidth,
-      height: newHeight,
-      terrain: newTerrain,
-      playerStart: newPlayerStart,
-      boxStarts: newBoxStarts,
-      goals: newGoals,
-    }
-
-    setGameState({
-      ...gameState,
-      level: newLevel,
-      playerPos: newPlayerPos,
-      boxes: newBoxes,
-    })
-    setCurrentLevel(newLevel)
-  }, [gameState])
 
   // Handle cell click for editing mode
   const handleCellClick = useCallback(
@@ -541,37 +426,9 @@ export function SokobanGame() {
           return
         }
 
-        // Handle wall mode - toggle between wall and floor
+        // Wall mode is handled entirely by drag handlers (handleCellDragStart)
+        // to avoid double-toggle on click
         if (addMode === 'wall') {
-          // Can't modify border cells
-          if (
-            x === 0 ||
-            x === gameState.level.width - 1 ||
-            y === 0 ||
-            y === gameState.level.height - 1
-          ) {
-            return
-          }
-
-          // Can't place wall on player, box, or goal
-          if (isPlayerHere || isBoxHere || isGoalHere) return
-
-          // Toggle between wall and floor
-          const newTerrain = isWall ? 'floor' : 'wall'
-          const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
-            rowY === y ? row.map((cell, cellX) => (cellX === x ? newTerrain : cell)) : row,
-          )
-
-          const newLevel = {
-            ...gameState.level,
-            terrain: newTerrainGrid,
-          }
-
-          setGameState({
-            ...gameState,
-            level: newLevel,
-          })
-          setCurrentLevel(newLevel)
           return
         }
 
@@ -795,11 +652,63 @@ export function SokobanGame() {
         handleRegenerate()
         return
       }
+
+      // Edit mode hotkeys
+      if (isEditing) {
+        // Wall (W)
+        if (e.key === 'w' || e.key === 'W') {
+          e.preventDefault()
+          setAddMode((prev) => (prev === 'wall' ? null : 'wall'))
+          return
+        }
+
+        // Goal (G)
+        if (e.key === 'g' || e.key === 'G') {
+          e.preventDefault()
+          setAddMode((prev) => (prev === 'goal' ? null : 'goal'))
+          return
+        }
+
+        // Orange (O)
+        if (e.key === 'o' || e.key === 'O') {
+          e.preventDefault()
+          setAddMode((prev) => (prev === 'orange' ? null : 'orange'))
+          return
+        }
+
+        // Purple (P)
+        if (e.key === 'p' || e.key === 'P') {
+          e.preventDefault()
+          setAddMode((prev) => (prev === 'purple' ? null : 'purple'))
+          return
+        }
+
+        // Emerald (E)
+        if (e.key === 'e' || e.key === 'E') {
+          e.preventDefault()
+          setAddMode((prev) => (prev === 'emerald' ? null : 'emerald'))
+          return
+        }
+
+        // Sky (S)
+        if (e.key === 's' || e.key === 'S') {
+          e.preventDefault()
+          setAddMode((prev) => (prev === 'sky' ? null : 'sky'))
+          return
+        }
+
+        // Remove (Escape)
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          setAddMode((prev) => (prev === 'remove' ? null : 'remove'))
+          return
+        }
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleMove, handleUndo, handleReset, handleRegenerate])
+  }, [handleMove, handleUndo, handleReset, handleRegenerate, isEditing])
 
   const boxesOnGoals = gameState ? getBoxesOnGoalsCount(gameState) : 0
   const totalBoxes = gameState?.boxes.length ?? 0
@@ -821,8 +730,6 @@ export function SokobanGame() {
               currentLevel={currentLevel}
               isEditing={isEditing}
               onEditingChange={setIsEditing}
-              onFlipBoard={handleFlipBoard}
-              onRotateBoard={handleRotateBoard}
             />
             <ControlPanel
               state={gameState}

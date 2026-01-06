@@ -28,16 +28,9 @@ import {
   getRandomMicrobanLevel,
 } from '@src/utils/levelLoader'
 import { generateMixedCustomLevel } from '@src/utils/mixedCustomGenerator'
-import {
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-  Dices,
-  FlipVertical,
-  RotateCw,
-  Shuffle,
-} from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Dices, Grid3X3, Shuffle } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 
 // Difficulties that use procedural generation
 const GENERATED_DIFFICULTIES: Difficulty[] = ['eval-easy', 'mixed-custom']
@@ -66,8 +59,6 @@ interface LevelSelectorProps {
   currentLevel?: SokobanLevel | null
   isEditing?: boolean
   onEditingChange?: (editing: boolean) => void
-  onFlipBoard?: () => void
-  onRotateBoard?: () => void
 }
 
 export function LevelSelector({
@@ -76,13 +67,13 @@ export function LevelSelector({
   currentLevel,
   isEditing = false,
   onEditingChange,
-  onFlipBoard,
-  onRotateBoard,
 }: LevelSelectorProps) {
   const [difficulty, setDifficulty] = useState<Difficulty>('eval-easy')
   const [puzzleNumber, setPuzzleNumber] = useState<number>(1)
   const [error, setError] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [gridWidth, setGridWidth] = useState<number>(8)
+  const [gridHeight, setGridHeight] = useState<number>(8)
 
   // Ref to avoid stale closures in setTimeout
   const difficultyRef = useRef(difficulty)
@@ -196,6 +187,48 @@ export function LevelSelector({
       }
     }, 10)
   }, [isGenerated, onLevelLoad])
+
+  const handleCreateBlankGrid = useCallback(() => {
+    const width = Math.max(4, Math.min(20, gridWidth))
+    const height = Math.max(4, Math.min(20, gridHeight))
+
+    // Create terrain with wall borders and floor inside
+    const terrain: ('wall' | 'floor' | 'goal')[][] = []
+    for (let y = 0; y < height; y++) {
+      const row: ('wall' | 'floor' | 'goal')[] = []
+      for (let x = 0; x < width; x++) {
+        if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
+          row.push('wall')
+        } else {
+          row.push('floor')
+        }
+      }
+      terrain.push(row)
+    }
+
+    // Place player in center
+    const playerStart = {
+      x: Math.floor(width / 2),
+      y: Math.floor(height / 2),
+    }
+
+    const level: SokobanLevel = {
+      id: uuidv4(),
+      width,
+      height,
+      terrain,
+      playerStart,
+      boxStarts: [],
+      goals: [],
+      difficulty: 'mixed-custom',
+      fileSource: 'custom',
+      puzzleNumber: 0,
+    }
+
+    onLevelLoad(level)
+    // Auto-enable editing mode for blank grids
+    onEditingChange?.(true)
+  }, [gridWidth, gridHeight, onLevelLoad, onEditingChange])
 
   return (
     <div className="space-y-3">
@@ -394,30 +427,46 @@ export function LevelSelector({
             disabled={disabled || !currentLevel}
           />
         </div>
+      </div>
 
-        {/* Flip and Rotate buttons */}
+      {/* Create New Grid */}
+      <Separator />
+      <div className="space-y-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Create New Grid
+        </span>
+
         <div className="flex gap-2">
-          <Button
-            onClick={onFlipBoard}
-            disabled={disabled || !currentLevel}
-            size="sm"
-            variant="secondary"
-            className="flex-1 h-8 text-xs"
-          >
-            <FlipVertical className="w-3.5 h-3.5 mr-1.5" />
-            Flip Board
-          </Button>
-          <Button
-            onClick={onRotateBoard}
-            disabled={disabled || !currentLevel}
-            size="sm"
-            variant="secondary"
-            className="flex-1 h-8 text-xs"
-          >
-            <RotateCw className="w-3.5 h-3.5 mr-1.5" />
-            Rotate Board
-          </Button>
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs text-muted-foreground">Width</Label>
+            <Input
+              value={gridWidth}
+              onChange={(e) => setGridWidth(Number(e.target.value) || 0)}
+              disabled={disabled}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs text-muted-foreground">Height</Label>
+            <Input
+              value={gridHeight}
+              onChange={(e) => setGridHeight(Number(e.target.value) || 0)}
+              disabled={disabled}
+              className="h-8 text-xs"
+            />
+          </div>
         </div>
+
+        <Button
+          onClick={handleCreateBlankGrid}
+          disabled={disabled}
+          size="sm"
+          variant="secondary"
+          className="w-full h-8 text-xs"
+        >
+          <Grid3X3 className="w-3.5 h-3.5 mr-1.5" />
+          Create Grid
+        </Button>
       </div>
     </div>
   )

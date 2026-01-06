@@ -96,6 +96,7 @@ export interface PromptOptions {
   executionMode: 'fullSolution' | 'moveByMove'
   cipherSymbols: boolean
   coordinateLocations: boolean
+  coloredBoxRules: boolean
 }
 
 // AI session metrics

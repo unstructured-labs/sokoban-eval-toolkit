@@ -152,8 +152,8 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
   // Use cipher symbols if enabled
   const useCipher = options.cipherSymbols
 
-  // Check if this is a colored variant puzzle
-  const isColoredVariant = hasMultipleColors(state)
+  // Check if this is a colored variant puzzle (multiple colors OR option enabled)
+  const isColoredVariant = options.coloredBoxRules || hasMultipleColors(state)
 
   // Symbol definitions based on mode
   const symbols = useCipher
@@ -356,4 +356,5 @@ export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {
   executionMode: 'fullSolution',
   cipherSymbols: false,
   coordinateLocations: true,
+  coloredBoxRules: false,
 }
