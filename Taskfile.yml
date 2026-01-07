@@ -40,11 +40,6 @@ tasks:
     cmds:
       - bun env:setup
 
-  bootstrap:
-    desc: Bootstrap a new repo from this starter
-    cmds:
-      - bun scripts/bootstrap.ts
-
   benchmark:
     desc: Run solver benchmark on all level sets
     dir: apps/ui-sokoban
