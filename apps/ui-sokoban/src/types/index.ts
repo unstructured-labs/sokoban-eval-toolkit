@@ -34,13 +34,7 @@ export interface SokobanLevel {
   usedFallback?: boolean // True if generator fell back to simple puzzle
 }
 
-export type Difficulty =
-  | 'eval-easy'
-  | 'mixed-custom'
-  | 'lmiq-reasoning-easy'
-  | 'classic'
-  | 'classic-hard'
-  | 'microban'
+export type Difficulty = 'lmiq-reasoning-easy' | 'classic' | 'classic-hard' | 'microban'
 
 // Movement
 export type MoveDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
@@ -94,7 +88,6 @@ export interface PromptOptions {
   coordinateFormat: boolean
   includeNotationGuide: boolean
   executionMode: 'fullSolution' | 'moveByMove'
-  cipherSymbols: boolean
   coordinateLocations: boolean
   coloredBoxRules: boolean
   specialInstructions?: string

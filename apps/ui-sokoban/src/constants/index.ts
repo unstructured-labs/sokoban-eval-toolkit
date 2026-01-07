@@ -29,8 +29,6 @@ export const BOX_COLORS: Record<
 
 // Difficulty display names
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  'eval-easy': 'Eval Easy',
-  'mixed-custom': 'Mixed (Custom)',
   'lmiq-reasoning-easy': 'LMIQ Reasoning Easy',
   microban: 'Microban (Beginner)',
   classic: 'Boxoban (Medium)',

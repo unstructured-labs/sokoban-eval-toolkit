@@ -722,22 +722,6 @@ export function AIPanel({
                 Coordinate Locations
               </Label>
             </div>
-            {/* Cipher Symbols option */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="cipherSymbols"
-                checked={promptOptions.cipherSymbols}
-                onCheckedChange={() => togglePromptOption('cipherSymbols')}
-                disabled={isRunning || plannedMoves.length > 0 || !promptOptions.asciiGrid}
-                className="h-3.5 w-3.5"
-              />
-              <Label
-                htmlFor="cipherSymbols"
-                className={`text-xs ${isRunning || plannedMoves.length > 0 || !promptOptions.asciiGrid ? 'text-muted-foreground cursor-default' : 'cursor-pointer'}`}
-              >
-                Cipher Symbols
-              </Label>
-            </div>
             {/* Colored Box Rules option */}
             <div className="flex items-center gap-2">
               <Checkbox

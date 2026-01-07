@@ -17,17 +17,6 @@ const BOX_COLOR_SYMBOLS: Record<BoxColor, string> = {
   sky: 'S',
 }
 
-// Cipher symbol mapping (non-standard symbols to replace standard Sokoban notation)
-const CIPHER_MAP = {
-  wall: 'W',
-  player: 'P',
-  box: 'B',
-  goal: 'G',
-  boxOnGoal: 'X',
-  playerOnGoal: 'Y',
-  floor: '_',
-} as const
-
 /**
  * Convert x,y coordinates to r1c4 notation (1-indexed row/column).
  */
@@ -130,51 +119,24 @@ function generateColoredAsciiGrid(state: GameState): string {
 }
 
 /**
- * Convert standard Sokoban ASCII to cipher symbols.
- */
-function applyCipherSymbols(ascii: string): string {
-  return ascii
-    .replace(/#/g, CIPHER_MAP.wall)
-    .replace(/@/g, CIPHER_MAP.player)
-    .replace(/\$/g, CIPHER_MAP.box)
-    .replace(/\./g, CIPHER_MAP.goal)
-    .replace(/\*/g, CIPHER_MAP.boxOnGoal)
-    .replace(/\+/g, CIPHER_MAP.playerOnGoal)
-    .replace(/-/g, CIPHER_MAP.floor)
-}
-
-/**
  * Generate a prompt for an AI to solve a Sokoban puzzle.
  */
 export function generateSokobanPrompt(state: GameState, options: PromptOptions): string {
   const parts: string[] = []
 
-  // Use cipher symbols if enabled
-  const useCipher = options.cipherSymbols
-
   // Check if this is a colored variant puzzle (multiple colors OR option enabled)
   const isColoredVariant = options.coloredBoxRules || hasMultipleColors(state)
 
-  // Symbol definitions based on mode
-  const symbols = useCipher
-    ? {
-        wall: CIPHER_MAP.wall,
-        player: CIPHER_MAP.player,
-        box: CIPHER_MAP.box,
-        goal: CIPHER_MAP.goal,
-        boxOnGoal: CIPHER_MAP.boxOnGoal,
-        playerOnGoal: CIPHER_MAP.playerOnGoal,
-        floor: CIPHER_MAP.floor,
-      }
-    : {
-        wall: '#',
-        player: '@',
-        box: '$',
-        goal: '.',
-        boxOnGoal: '*',
-        playerOnGoal: '+',
-        floor: '-',
-      }
+  // Standard Sokoban symbol definitions
+  const symbols = {
+    wall: '#',
+    player: '@',
+    box: '$',
+    goal: '.',
+    boxOnGoal: '*',
+    playerOnGoal: '+',
+    floor: '-',
+  }
 
   // Header
   if (isColoredVariant) {
@@ -213,18 +175,17 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
     parts.push('## Current State (ASCII Grid)')
     parts.push('```')
     // Use colored grid for colored variant, standard grid otherwise
-    if (isColoredVariant && !useCipher) {
+    if (isColoredVariant) {
       parts.push(generateColoredAsciiGrid(state))
     } else {
-      const gridAscii = gameStateToAscii(state)
-      parts.push(useCipher ? applyCipherSymbols(gridAscii) : gridAscii)
+      parts.push(gameStateToAscii(state))
     }
     parts.push('```')
     parts.push('')
     parts.push('Legend:')
     parts.push(`- ${symbols.wall} = Wall`)
     parts.push(`- ${symbols.player} = Player`)
-    if (isColoredVariant && !useCipher) {
+    if (isColoredVariant) {
       parts.push('- O = Orange box, o = Orange box on goal')
       parts.push('- P = Purple box, p = Purple box on goal')
       parts.push('- E = Emerald box, e = Emerald box on goal')
@@ -361,7 +322,6 @@ export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {
   coordinateFormat: true,
   includeNotationGuide: false,
   executionMode: 'fullSolution',
-  cipherSymbols: false,
   coordinateLocations: true,
   coloredBoxRules: false,
 }

@@ -5,6 +5,7 @@ import {
   getSavedLayoutsList,
   layoutExists,
   loadLayout,
+  reorderLayouts,
   saveLayout,
 } from '@src/utils/layoutStorage'
 import { useCallback, useEffect, useState } from 'react'
@@ -22,6 +23,7 @@ interface UseLayoutPersistenceReturn {
   handleSaveLayout: () => void
   handleLoadLayout: (name: string) => void
   handleDeleteLayout: (name: string) => void
+  handleReorderLayouts: (fromIndex: number, toIndex: number) => void
 }
 
 export function useLayoutPersistence({
@@ -136,6 +138,34 @@ export function useLayoutPersistence({
     }
   }, [])
 
+  // Reorder layouts via drag and drop
+  const handleReorderLayouts = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (fromIndex === toIndex) return
+
+      try {
+        // Create new array with reordered items
+        const newLayouts = [...savedLayouts]
+        const [removed] = newLayouts.splice(fromIndex, 1)
+        if (removed) {
+          newLayouts.splice(toIndex, 0, removed)
+        }
+
+        // Update state immediately for responsive UI
+        setSavedLayouts(newLayouts)
+
+        // Persist the new order
+        const orderedNames = newLayouts.map((l) => l.name)
+        reorderLayouts(orderedNames)
+      } catch (error) {
+        console.error('Failed to reorder layouts:', error)
+        // Reload from storage on error
+        setSavedLayouts(getSavedLayoutsList())
+      }
+    },
+    [savedLayouts],
+  )
+
   return {
     savedLayouts,
     layoutName,
@@ -143,5 +173,6 @@ export function useLayoutPersistence({
     handleSaveLayout,
     handleLoadLayout,
     handleDeleteLayout,
+    handleReorderLayouts,
   }
 }

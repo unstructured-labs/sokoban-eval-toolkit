@@ -7,15 +7,14 @@ import {
 import { BOX_COLORS, MOVE_KEYS } from '@src/constants'
 import { useEditMode, useGameState, useLayoutPersistence } from '@src/hooks'
 import type { MoveDirection, SokobanLevel } from '@src/types'
-import { generateEvalEasyLevel } from '@src/utils/evalEasyGenerator'
 import { getBoxesOnGoalsCount } from '@src/utils/gameEngine'
-import { generateMixedCustomLevel } from '@src/utils/mixedCustomGenerator'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { getLmiqLevel } from '@src/utils/levelLoader'
+import { type SolutionResult, getSolution } from '@src/utils/solutionCache'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AIPanel } from './components/AIPanel'
 import { ControlPanel } from './components/ControlPanel'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { LevelSelector } from './components/LevelSelector'
-import { SavedLayoutsOverlay } from './components/SavedLayoutsOverlay'
 import { SokobanGrid } from './components/SokobanGrid'
 
 export function SokobanGame() {
@@ -43,6 +42,7 @@ export function SokobanGame() {
   // Use custom hook for edit mode
   const {
     selectedEntity,
+    setSelectedEntity,
     isDraggingWalls,
     addMode,
     setAddMode,
@@ -65,6 +65,7 @@ export function SokobanGame() {
     handleSaveLayout,
     handleLoadLayout,
     handleDeleteLayout,
+    handleReorderLayouts,
   } = useLayoutPersistence({
     gameState,
     onLayoutLoad: (level: SokobanLevel) => {
@@ -73,26 +74,46 @@ export function SokobanGame() {
     },
   })
 
-  // Auto-generate easy puzzle on mount
+  // Selected layout tracking
+  const [selectedLayoutName, setSelectedLayoutName] = useState<string | null>(null)
+
+  // Solution state management
+  const [solution, setSolution] = useState<SolutionResult | null>(null)
+  const [isSolving, setIsSolving] = useState(false)
+  const lastSolvedLevelId = useRef<string | null>(null)
+
+  // Reset solution when level changes
+  useEffect(() => {
+    if (gameState?.level.id !== lastSolvedLevelId.current) {
+      setSolution(null)
+    }
+  }, [gameState?.level.id])
+
+  const handleComputeSolution = useCallback(() => {
+    if (!gameState?.level || isSolving) return
+
+    setIsSolving(true)
+    lastSolvedLevelId.current = gameState.level.id
+    getSolution(gameState.level)
+      .then(setSolution)
+      .finally(() => setIsSolving(false))
+  }, [gameState?.level, isSolving])
+
+  const solutionMoves = useMemo(() => {
+    if (!solution?.found || !gameState) return null
+    return solution.solution
+  }, [solution, gameState])
+
+  // Load first LMIQ puzzle on mount
   useEffect(() => {
     if (initialLoadDone.current) return
     initialLoadDone.current = true
 
-    const level = generateEvalEasyLevel()
-    handleLevelLoad(level)
-  }, [handleLevelLoad])
-
-  // Generate new puzzle (for generated difficulties)
-  const handleRegenerate = useCallback(() => {
-    const difficulty = currentLevel?.difficulty
-    if (difficulty === 'eval-easy') {
-      const newLevel = generateEvalEasyLevel()
-      handleLevelLoad(newLevel)
-    } else if (difficulty === 'mixed-custom') {
-      const newLevel = generateMixedCustomLevel()
-      handleLevelLoad(newLevel)
+    const level = getLmiqLevel(0)
+    if (level) {
+      handleLevelLoad(level)
     }
-  }, [currentLevel, handleLevelLoad])
+  }, [handleLevelLoad])
 
   // Keyboard controls
   useEffect(() => {
@@ -124,13 +145,6 @@ export function SokobanGame() {
       if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault()
         handleReset()
-        return
-      }
-
-      // New puzzle (N) - regenerate for easy difficulty
-      if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault()
-        handleRegenerate()
         return
       }
 
@@ -178,10 +192,18 @@ export function SokobanGame() {
           return
         }
 
-        // Remove (Escape)
-        if (e.key === 'Escape') {
+        // Remove/Delete (D)
+        if (e.key === 'd' || e.key === 'D') {
           e.preventDefault()
           setAddMode((prev) => (prev === 'remove' ? null : 'remove'))
+          return
+        }
+
+        // Deselect all (Escape)
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          setAddMode(null)
+          setSelectedEntity(null)
           return
         }
       }
@@ -189,7 +211,7 @@ export function SokobanGame() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleMove, handleUndo, handleReset, handleRegenerate, isEditing, setAddMode])
+  }, [handleMove, handleUndo, handleReset, isEditing, setAddMode, setSelectedEntity])
 
   const boxesOnGoals = gameState ? getBoxesOnGoalsCount(gameState) : 0
   const totalBoxes = gameState?.boxes.length ?? 0
@@ -208,112 +230,128 @@ export function SokobanGame() {
             <LevelSelector
               onLevelLoad={handleLevelLoad}
               disabled={false}
-              currentLevel={currentLevel}
-              isEditing={isEditing}
               onEditingChange={setIsEditing}
+              solution={solution}
+              isSolving={isSolving}
+              onComputeSolution={handleComputeSolution}
+              onRunSolution={solutionMoves ? () => handleRunSolution(solutionMoves) : undefined}
+              canRunSolution={
+                !!solutionMoves && gameState?.moveHistory.length === 0 && !isPlayingSolution
+              }
             />
             <ControlPanel
               state={gameState}
-              onUndo={handleUndo}
-              onReset={handleReset}
-              disabled={false}
               aiInferenceTimeMs={aiInferenceTimeMs}
-              onRunSolution={handleRunSolution}
-              isPlayingSolution={isPlayingSolution}
+              savedLayouts={savedLayouts}
+              layoutName={layoutName}
+              onLayoutNameChange={setLayoutName}
+              onSaveLayout={handleSaveLayout}
+              onLoadLayout={(name) => {
+                handleLoadLayout(name)
+                setSelectedLayoutName(name)
+              }}
+              onDeleteLayout={handleDeleteLayout}
+              onReorderLayouts={handleReorderLayouts}
+              selectedLayoutName={selectedLayoutName}
+              onSelectedLayoutChange={setSelectedLayoutName}
             />
           </CardContent>
         </Card>
       </div>
 
       {/* Center - Game Area */}
-      <div className="flex-1 flex flex-col items-center px-5 py-6 min-w-0">
-        {/* Save/Load layouts UI - at top */}
-        <div className="flex-1 flex flex-col justify-start">
-          <div className="flex items-start gap-2">
-            <SavedLayoutsOverlay
-              layouts={savedLayouts}
-              onLoad={handleLoadLayout}
-              onDelete={handleDeleteLayout}
-            />
-            {/* Controls wrapper - stays aligned at top with consistent height */}
-            <div className="flex items-center gap-2">
-              {isEditing && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setAddMode(addMode === 'wall' ? null : 'wall')}
-                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
-                      addMode === 'wall'
-                        ? 'bg-[hsl(var(--sokoban-wall))]/40 text-foreground border-[hsl(var(--sokoban-wall))]'
-                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
-                    }`}
-                  >
-                    Wall
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAddMode(addMode === 'goal' ? null : 'goal')}
-                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
-                      addMode === 'goal'
-                        ? 'bg-[hsl(var(--sokoban-goal))]/20 text-[hsl(var(--sokoban-goal))] border-[hsl(var(--sokoban-goal))]/50'
-                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
-                    }`}
-                  >
-                    + Goal
-                  </button>
-                  {/* Colored box buttons */}
-                  {(['orange', 'purple', 'emerald', 'sky'] as const).map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setAddMode(addMode === color ? null : color)}
-                      className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
-                        addMode === color ? 'border-2' : 'bg-muted/50 hover:bg-muted border-border'
-                      }`}
-                      style={{
-                        backgroundColor:
-                          addMode === color ? `${BOX_COLORS[color].bg}33` : undefined,
-                        color: BOX_COLORS[color].bg,
-                        borderColor: addMode === color ? BOX_COLORS[color].bg : undefined,
-                      }}
-                    >
-                      + {color.charAt(0).toUpperCase() + color.slice(1)}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setAddMode(addMode === 'remove' ? null : 'remove')}
-                    className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
-                      addMode === 'remove'
-                        ? 'bg-red-500/20 text-red-500 border-red-500/50'
-                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
-                    }`}
-                  >
-                    Remove
-                  </button>
-                </>
-              )}
-              <input
-                type="text"
-                placeholder="Layout name..."
-                value={layoutName}
-                onChange={(e) => setLayoutName(e.target.value)}
-                className="h-8 px-2 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary w-32"
-              />
+      <div className="flex-1 flex flex-col items-center px-5 py-4 min-w-0">
+        {/* Editing controls - at top */}
+        <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+          {/* Edit toggle */}
+          <button
+            type="button"
+            onClick={() => setIsEditing(!isEditing)}
+            disabled={!currentLevel}
+            className={`h-8 px-3 text-xs rounded border focus:outline-none whitespace-nowrap transition-colors ${
+              isEditing
+                ? 'bg-primary/20 text-primary border-primary/50'
+                : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {isEditing ? 'Editing' : 'Edit Level'}
+          </button>
+
+          {/* Show edit tools only when editing */}
+          {isEditing && (
+            <>
+              <div className="w-px h-6 bg-border" />
               <button
                 type="button"
-                onClick={handleSaveLayout}
-                disabled={!layoutName.trim() || !gameState}
-                className="h-8 px-2 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-500 rounded border border-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none whitespace-nowrap"
+                onClick={() => setAddMode(addMode === 'wall' ? null : 'wall')}
+                className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                  addMode === 'wall'
+                    ? 'bg-[hsl(var(--sokoban-wall))]/40 text-foreground border-[hsl(var(--sokoban-wall))]'
+                    : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                }`}
               >
-                Save
+                Wall
               </button>
-            </div>
-          </div>
+              <button
+                type="button"
+                onClick={() => setAddMode(addMode === 'goal' ? null : 'goal')}
+                className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                  addMode === 'goal'
+                    ? 'bg-[hsl(var(--sokoban-goal))]/20 text-[hsl(var(--sokoban-goal))] border-[hsl(var(--sokoban-goal))]/50'
+                    : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                }`}
+              >
+                + Goal
+              </button>
+              {/* Colored box buttons */}
+              {(['orange', 'purple', 'emerald', 'sky'] as const).map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setAddMode(addMode === color ? null : color)}
+                  className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                    addMode === color ? 'border-2' : 'bg-muted/50 hover:bg-muted border-border'
+                  }`}
+                  style={{
+                    backgroundColor: addMode === color ? `${BOX_COLORS[color].bg}33` : undefined,
+                    color: BOX_COLORS[color].bg,
+                    borderColor: addMode === color ? BOX_COLORS[color].bg : undefined,
+                  }}
+                >
+                  + {color.charAt(0).toUpperCase() + color.slice(1)}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setAddMode(addMode === 'remove' ? null : 'remove')}
+                className={`h-8 px-2 text-xs rounded border focus:outline-none whitespace-nowrap ${
+                  addMode === 'remove'
+                    ? 'bg-red-500/20 text-red-500 border-red-500/50'
+                    : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                }`}
+              >
+                Remove
+              </button>
+            </>
+          )}
         </div>
 
+        {/* Edit hotkeys hint */}
+        {isEditing && (
+          <div className="text-[10px] text-muted-foreground/70 font-mono mb-1">
+            <span className="text-foreground/50">W</span> wall ·{' '}
+            <span className="text-foreground/50">G</span> goal ·{' '}
+            <span className="text-foreground/50">O</span> orange ·{' '}
+            <span className="text-foreground/50">P</span> purple ·{' '}
+            <span className="text-foreground/50">E</span> emerald ·{' '}
+            <span className="text-foreground/50">S</span> sky ·{' '}
+            <span className="text-foreground/50">D</span> remove ·{' '}
+            <span className="text-foreground/50">Esc</span> deselect
+          </div>
+        )}
+
         {/* Main content - centered */}
-        <div className="flex flex-col items-center">
+        <div className="flex-1 flex flex-col items-center justify-center">
           {/* Title */}
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-2">
             Sokoban Puzzle
@@ -399,13 +437,12 @@ export function SokobanGame() {
           )}
         </div>
 
-        {/* Bottom spacer with instructions */}
-        <div className="flex-1 flex flex-col justify-end">
+        {/* Bottom instructions */}
+        <div className="flex-shrink-0 pt-4">
           <div className="text-[11px] text-muted-foreground font-mono text-center">
             <span className="text-foreground/60">Arrow Keys</span> move ·{' '}
             <span className="text-foreground/60">Z/Backspace</span> undo ·{' '}
-            <span className="text-foreground/60">R</span> reset ·{' '}
-            <span className="text-foreground/60">N</span> new
+            <span className="text-foreground/60">R</span> reset
           </div>
         </div>
       </div>

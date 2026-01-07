@@ -149,6 +149,13 @@ export function useEditMode({
       if (addMode) {
         // Handle remove mode separately
         if (addMode === 'remove') {
+          // Don't allow removing border walls
+          const isBorder =
+            x === 0 ||
+            x === gameState.level.width - 1 ||
+            y === 0 ||
+            y === gameState.level.height - 1
+
           if (isBoxHere) {
             const newBoxes = gameState.boxes.filter((b) => !(b.x === x && b.y === y))
             const newLevel = {
@@ -165,6 +172,25 @@ export function useEditMode({
           }
 
           if (isGoalHere) {
+            const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
+              rowY === y
+                ? row.map((cell, cellX) => (cellX === x ? ('floor' as CellTerrain) : cell))
+                : row,
+            )
+            const newLevel = {
+              ...gameState.level,
+              terrain: newTerrainGrid,
+            }
+            setGameState({
+              ...gameState,
+              level: newLevel,
+            })
+            setCurrentLevel(newLevel)
+            return
+          }
+
+          // Remove walls (convert to floor)
+          if (isWall && !isBorder) {
             const newTerrainGrid = gameState.level.terrain.map((row, rowY) =>
               rowY === y
                 ? row.map((cell, cellX) => (cellX === x ? ('floor' as CellTerrain) : cell))

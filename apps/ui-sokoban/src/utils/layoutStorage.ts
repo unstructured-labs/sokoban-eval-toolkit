@@ -7,6 +7,7 @@ export interface SavedLayout {
   id: string
   name: string
   savedAt: number
+  order?: number
   difficulty: Difficulty
   width: number
   height: number
@@ -26,11 +27,17 @@ export function getSavedLayouts(): Record<string, SavedLayout> {
 }
 
 /**
- * Get saved layouts as a sorted array (newest first).
+ * Get saved layouts as a sorted array (by order, then newest first).
  */
 export function getSavedLayoutsList(): SavedLayout[] {
   const layouts = getSavedLayouts()
-  return Object.values(layouts).sort((a, b) => b.savedAt - a.savedAt)
+  return Object.values(layouts).sort((a, b) => {
+    // Sort by order if both have it, otherwise by savedAt (newest first)
+    if (a.order !== undefined && b.order !== undefined) {
+      return a.order - b.order
+    }
+    return b.savedAt - a.savedAt
+  })
 }
 
 /**
@@ -77,4 +84,21 @@ export function deleteLayout(name: string): void {
 export function layoutExists(name: string): boolean {
   const layouts = getSavedLayouts()
   return name in layouts
+}
+
+/**
+ * Reorder layouts by providing an array of names in the desired order.
+ */
+export function reorderLayouts(orderedNames: string[]): void {
+  if (typeof window === 'undefined') return
+  const layouts = getSavedLayouts()
+
+  // Update order field for each layout
+  orderedNames.forEach((name, index) => {
+    if (layouts[name]) {
+      layouts[name].order = index
+    }
+  })
+
+  localStorage.setItem(LAYOUTS_STORAGE_KEY, JSON.stringify(layouts))
 }
