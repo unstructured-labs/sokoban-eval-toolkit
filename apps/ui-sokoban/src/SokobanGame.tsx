@@ -220,7 +220,6 @@ export function SokobanGame() {
               aiInferenceTimeMs={aiInferenceTimeMs}
               onRunSolution={handleRunSolution}
               isPlayingSolution={isPlayingSolution}
-              isEditing={isEditing}
             />
           </CardContent>
         </Card>

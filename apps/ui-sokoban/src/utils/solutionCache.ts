@@ -1,13 +1,13 @@
 import solutionCacheData from '../data/solutionCacheLite.json'
 import type { MoveDirection, SokobanLevel } from '../types'
 import { levelToAscii } from './levelParser'
-import { solvePuzzle } from './sokobanSolver'
+import { solvePuzzleAsync } from './sokobanSolver'
 
 // The cache is imported directly as a JSON module
 const solutionCache: Record<string, string> = solutionCacheData as Record<string, string>
 
 // Node limit for runtime solving (lower than benchmark to keep UI responsive)
-const RUNTIME_SOLVER_NODE_LIMIT = 25000
+export const RUNTIME_SOLVER_NODE_LIMIT = 25000
 
 /**
  * Hash a level to match the benchmark cache key format.
@@ -92,7 +92,7 @@ export async function getSolution(
   }
 
   const nodeLimit = options?.maxNodes ?? RUNTIME_SOLVER_NODE_LIMIT
-  const result = solvePuzzle(level, nodeLimit)
+  const result = await solvePuzzleAsync(level, nodeLimit)
 
   if (result.solvable && result.solution) {
     return {

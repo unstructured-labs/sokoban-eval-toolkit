@@ -33,7 +33,6 @@ import type {
 } from '@src/types'
 import { levelToAsciiWithCoords } from '@src/utils/levelParser'
 import { DEFAULT_PROMPT_OPTIONS, generateSokobanPrompt } from '@src/utils/promptGeneration'
-import { type SolutionResult, getSolution } from '@src/utils/solutionCache'
 import { movesToNotation } from '@src/utils/solutionValidator'
 import { AlertCircle, Copy } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -85,7 +84,6 @@ export function AIPanel({
   const [copiedReasoningContext, setCopiedReasoningContext] = useState(false)
   const [wasManuallyStopped, setWasManuallyStopped] = useState(false)
   const [storedSolution, setStoredSolution] = useState<MoveDirection[]>([])
-  const [cachedSolution, setCachedSolution] = useState<SolutionResult | null>(null)
 
   const abortRef = useRef(false)
   const isRunningRef = useRef(false)
@@ -133,7 +131,6 @@ export function AIPanel({
       setInflightStartTime(null)
       setWasManuallyStopped(false)
       setStoredSolution([])
-      setCachedSolution(null)
       abortRef.current = true
       isRunningRef.current = false
       isReplayingRef.current = false
@@ -142,22 +139,15 @@ export function AIPanel({
     }
   }, [levelId, onInferenceTimeChange])
 
-  // Load solution when level changes (cache first, then solver)
-  // Skip solver while editing to keep UI responsive
+  // Enable colored box rules by default for custom puzzles and saved layouts
   useEffect(() => {
-    if (!state?.level) {
-      setCachedSolution(null)
-      return
+    const isSavedLayout = levelId?.startsWith('saved-')
+    if (isEditing || isSavedLayout) {
+      setPromptOptions((prev) => ({ ...prev, coloredBoxRules: true }))
     }
+  }, [isEditing, levelId])
 
-    // Don't run solver while editing - it's too expensive
-    if (isEditing) {
-      setCachedSolution(null)
-      return
-    }
-
-    getSolution(state.level).then(setCachedSolution)
-  }, [state?.level, isEditing])
+  // Solution caching removed - solver is now manual only via ControlPanel
 
   // Notify parent of inference time changes
   useEffect(() => {
@@ -466,18 +456,7 @@ export function AIPanel({
     parts.push('[ACTUAL PUZZLE SOLUTION]')
     parts.push('='.repeat(60))
     parts.push('')
-    if (cachedSolution?.found) {
-      parts.push(`Shortest Solution: ${cachedSolution.moveCount} moves`)
-      parts.push(`Moves: ${cachedSolution.solution.join(', ')}`)
-      parts.push(`Sokoban Notation: ${movesToNotation(cachedSolution.solution)}`)
-      parts.push(
-        `Source: ${cachedSolution.source === 'cache' ? 'Pre-computed cache' : 'Runtime solver'}`,
-      )
-    } else if (cachedSolution?.hitLimit) {
-      parts.push('Solver hit exploration limit - solution may exist but could not be computed')
-    } else {
-      parts.push('Puzzle Unsolved')
-    }
+    parts.push('Solution not computed - use "Find Solution" button in Controls panel')
     parts.push('')
 
     // [INSTRUCTIONS]
@@ -514,16 +493,7 @@ export function AIPanel({
     parts.push('- 96-100: Exceptional (optimal solution with insightful reasoning)')
 
     return parts.join('\n')
-  }, [
-    state,
-    nativeReasoning,
-    parsedReasoning,
-    storedSolution,
-    rawResponse,
-    plannedMoves,
-    error,
-    cachedSolution,
-  ])
+  }, [state, nativeReasoning, parsedReasoning, storedSolution, rawResponse, plannedMoves, error])
 
   const handleCopyReasoningContext = useCallback(async () => {
     const context = generateReasoningContext()

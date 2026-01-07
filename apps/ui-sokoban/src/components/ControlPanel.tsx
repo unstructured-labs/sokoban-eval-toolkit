@@ -2,10 +2,13 @@ import { Button } from '@sokoban-eval-toolkit/ui-library/components/button'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
 import type { GameState, MoveDirection } from '@src/types'
 import { isSimpleDeadlock } from '@src/utils/gameEngine'
-import { simpleSolve } from '@src/utils/simpleSolver'
-import { type SolutionResult, getSolution } from '@src/utils/solutionCache'
-import { AlertTriangle, RotateCcw, Undo2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import {
+  RUNTIME_SOLVER_NODE_LIMIT,
+  type SolutionResult,
+  getSolution,
+} from '@src/utils/solutionCache'
+import { AlertTriangle, Play, RotateCcw, Undo2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 interface ControlPanelProps {
   state: GameState | null
@@ -15,7 +18,6 @@ interface ControlPanelProps {
   aiInferenceTimeMs?: number | null
   onRunSolution?: (moves: MoveDirection[]) => void
   isPlayingSolution?: boolean
-  isEditing?: boolean
 }
 
 export function ControlPanel({
@@ -26,7 +28,6 @@ export function ControlPanel({
   aiInferenceTimeMs,
   onRunSolution,
   isPlayingSolution = false,
-  isEditing = false,
 }: ControlPanelProps) {
   const canUndo = state !== null && state.moveHistory.length > 0
 
@@ -52,37 +53,27 @@ export function ControlPanel({
 
   const hasDeadlock = state ? isSimpleDeadlock(state) : false
 
-  // Look up solution for the original level (cache first, then solver)
+  // Manual solver - only runs when user clicks the button
   const [solution, setSolution] = useState<SolutionResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const lastSolvedLevelId = useRef<string | null>(null)
 
+  // Reset solution when level changes
   useEffect(() => {
-    if (!state?.level) {
+    if (state?.level.id !== lastSolvedLevelId.current) {
       setSolution(null)
-      return
     }
+  }, [state?.level.id])
 
-    // Use simple solver when editing (faster), full solver otherwise
-    if (isEditing) {
-      const result = simpleSolve(state.level)
-      if (result.solvable && result.solution) {
-        setSolution({
-          found: true,
-          solution: result.solution,
-          moveCount: result.moveCount,
-          source: 'solver',
-        })
-      } else {
-        setSolution({ found: false, hitLimit: false })
-      }
-      return
-    }
+  const handleRunSolver = useCallback(() => {
+    if (!state?.level || isLoading) return
 
     setIsLoading(true)
+    lastSolvedLevelId.current = state.level.id
     getSolution(state.level)
       .then(setSolution)
       .finally(() => setIsLoading(false))
-  }, [state?.level, isEditing])
+  }, [state?.level, isLoading])
 
   // Calculate remaining moves from original solution
   const remainingMoves = useMemo(() => {
@@ -165,9 +156,22 @@ export function ControlPanel({
               )}
             </>
           ) : solution?.hitLimit ? (
-            <span className="text-amber-500">Solver limit hit (may be solvable)</span>
+            <span className="text-amber-500">
+              Limit hit ({RUNTIME_SOLVER_NODE_LIMIT.toLocaleString()} nodes)
+            </span>
+          ) : solution && !solution.found ? (
+            <span className="text-amber-500">Puzzle Unsolvable</span>
           ) : (
-            <span className="text-amber-500">Puzzle Unsolved</span>
+            <Button
+              onClick={handleRunSolver}
+              disabled={disabled || isLoading}
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+            >
+              <Play className="w-3 h-3 mr-1" />
+              Find Solution
+            </Button>
           )}
         </div>
       )}

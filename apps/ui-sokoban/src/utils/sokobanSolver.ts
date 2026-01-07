@@ -103,6 +103,133 @@ const PUSH_DIRECTIONS = [
   { dir: 'RIGHT' as MoveDirection, dx: 1, dy: 0 },
 ]
 
+// Batch size for async solver - yield to UI every N nodes
+const ASYNC_BATCH_SIZE = 1000
+
+/**
+ * Async version of solvePuzzle that yields to the UI periodically.
+ * Prevents browser lockup during long solves.
+ */
+export async function solvePuzzleAsync(
+  level: SokobanLevel,
+  maxNodes = 150000,
+): Promise<SolverResult> {
+  const deadSquares = computeDeadSquares(level)
+  const goals = findGoals(level)
+
+  const initialBoxes = level.boxStarts.map((b) => ({ ...b }))
+
+  if (isGoalState(initialBoxes, goals)) {
+    return {
+      solvable: true,
+      solution: [],
+      moveCount: 0,
+      nodesExplored: 1,
+      hitLimit: false,
+    }
+  }
+
+  for (const box of initialBoxes) {
+    if (deadSquares.has(`${box.x},${box.y}`)) {
+      return failResult(1)
+    }
+  }
+
+  const initialReachable = getReachableArea(level.playerStart, initialBoxes, level)
+  const initialHash = generateStateHash(initialBoxes, initialReachable.canonicalPos)
+
+  const startNode: SearchNode = {
+    playerPos: level.playerStart,
+    boxes: initialBoxes,
+    cost: 0,
+    heuristic: calcHeuristic(initialBoxes, goals),
+    priority: 0,
+    id: initialHash,
+    parent: null,
+    actionFromParent: null,
+  }
+  startNode.priority = startNode.cost + startNode.heuristic
+
+  const queue = new PriorityQueue()
+  queue.push(startNode)
+
+  const visited = new Set<string>()
+  visited.add(initialHash)
+
+  let nodesExplored = 0
+  let batchCount = 0
+
+  while (queue.size() > 0 && nodesExplored < maxNodes) {
+    const current = queue.pop()
+    if (!current) break
+    nodesExplored++
+    batchCount++
+
+    // Yield to UI every ASYNC_BATCH_SIZE nodes
+    if (batchCount >= ASYNC_BATCH_SIZE) {
+      batchCount = 0
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+
+    if (current.heuristic === 0) {
+      return {
+        solvable: true,
+        solution: reconstructPath(current),
+        moveCount: reconstructPath(current).length,
+        nodesExplored,
+        hitLimit: false,
+      }
+    }
+
+    const reachable = getReachableArea(current.playerPos, current.boxes, level)
+
+    for (let i = 0; i < current.boxes.length; i++) {
+      const box = current.boxes[i]
+
+      for (const { dir, dx, dy } of PUSH_DIRECTIONS) {
+        const pushFrom = { x: box.x - dx, y: box.y - dy }
+        if (!reachable.map.has(`${pushFrom.x},${pushFrom.y}`)) continue
+
+        const targetPos = { x: box.x + dx, y: box.y + dy }
+        if (!isValidMoveTarget(targetPos, level, current.boxes)) continue
+        if (deadSquares.has(`${targetPos.x},${targetPos.y}`)) continue
+
+        const newBoxes = [...current.boxes]
+        newBoxes[i] = targetPos
+
+        if (isFreezeDeadlock(newBoxes, level)) continue
+
+        const walkPath = findPathBFS(current.playerPos, pushFrom, level, current.boxes)
+        if (!walkPath) continue
+
+        const moveSequence = [...walkPath, dir]
+        const playerAfterPush = { x: box.x, y: box.y }
+        const newReachable = getReachableArea(playerAfterPush, newBoxes, level)
+        const newHash = generateStateHash(newBoxes, newReachable.canonicalPos)
+
+        if (visited.has(newHash)) continue
+        visited.add(newHash)
+
+        const h = calcHeuristic(newBoxes, goals)
+        const g = current.cost + moveSequence.length
+
+        queue.push({
+          playerPos: playerAfterPush,
+          boxes: newBoxes,
+          cost: g,
+          heuristic: h,
+          priority: g + h,
+          id: newHash,
+          parent: current,
+          actionFromParent: moveSequence,
+        })
+      }
+    }
+  }
+
+  return failResult(nodesExplored, nodesExplored >= maxNodes)
+}
+
 /**
  * Solve a Sokoban puzzle using Push-Level A* Search.
  *
