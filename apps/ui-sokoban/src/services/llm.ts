@@ -51,6 +51,12 @@ export async function getSokobanSolution(
 
     const prompt = generateSokobanPrompt(state, options)
 
+    console.log('[LLM] Request:', {
+      model,
+      promptLength: prompt.length,
+      promptPreview: prompt.slice(0, 500) + (prompt.length > 500 ? '...' : ''),
+    })
+
     const response = await client.chat.completions.create({
       model,
       messages: [{ role: 'user' as const, content: prompt }],
@@ -73,6 +79,21 @@ export async function getSokobanSolution(
     const reasoningTokens = extractOpenRouterReasoningTokens(usage)
     const cost = extractOpenRouterCost(usage)
 
+    console.log('[LLM] Response:', {
+      model,
+      durationMs,
+      inputTokens,
+      outputTokens,
+      reasoningTokens,
+      cost: `$${cost.toFixed(6)}`,
+      movesCount: parsed.moves.length,
+      moves: parsed.moves,
+      hasNativeReasoning: !!nativeReasoning,
+      hasParsedReasoning: !!parsed.reasoning,
+      parseError: parsed.error || null,
+      rawResponse: content,
+    })
+
     return {
       moves: parsed.moves,
       rawResponse: content,
@@ -87,6 +108,12 @@ export async function getSokobanSolution(
     }
   } catch (error) {
     const durationMs = Date.now() - startTime
+    console.error('[LLM] Error:', {
+      model,
+      durationMs,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     return {
       moves: [],
       rawResponse: '',
@@ -119,6 +146,12 @@ export async function getNextMove(
 
     const prompt = generateMoveByMovePrompt(state, moveHistory)
 
+    console.log('[LLM] Request (move-by-move):', {
+      model,
+      moveHistoryLength: moveHistory.length,
+      promptLength: prompt.length,
+    })
+
     const response = await client.chat.completions.create({
       model,
       messages: [{ role: 'user', content: prompt }],
@@ -142,6 +175,17 @@ export async function getNextMove(
     const reasoningTokens = extractOpenRouterReasoningTokens(usage)
     const cost = extractOpenRouterCost(usage)
 
+    console.log('[LLM] Response (move-by-move):', {
+      model,
+      durationMs,
+      inputTokens,
+      outputTokens,
+      cost: `$${cost.toFixed(6)}`,
+      move: parsed.moves[0] || null,
+      parseError: parsed.error || null,
+      rawResponse: content,
+    })
+
     return {
       moves: parsed.moves.slice(0, 1), // Only take first move
       rawResponse: content,
@@ -156,6 +200,12 @@ export async function getNextMove(
     }
   } catch (error) {
     const durationMs = Date.now() - startTime
+    console.error('[LLM] Error (move-by-move):', {
+      model,
+      durationMs,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     return {
       moves: [],
       rawResponse: '',

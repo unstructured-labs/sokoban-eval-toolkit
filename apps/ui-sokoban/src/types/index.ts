@@ -97,6 +97,8 @@ export interface PromptOptions {
   cipherSymbols: boolean
   coordinateLocations: boolean
   coloredBoxRules: boolean
+  specialInstructions?: string
+  includeSpecialInstructions?: boolean
 }
 
 // AI session metrics

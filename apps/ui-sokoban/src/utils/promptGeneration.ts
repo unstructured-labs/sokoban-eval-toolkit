@@ -297,6 +297,13 @@ export function generateSokobanPrompt(state: GameState, options: PromptOptions):
     parts.push('Valid moves: UP, DOWN, LEFT, RIGHT')
   }
 
+  // Append special instructions if provided and enabled
+  if (options.includeSpecialInstructions && options.specialInstructions?.trim()) {
+    parts.push('')
+    parts.push('## Special Instructions')
+    parts.push(options.specialInstructions.trim())
+  }
+
   return parts.join('\n')
 }
 

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@sokoban-eval-toolkit/ui-library/components/select'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
+import { Textarea } from '@sokoban-eval-toolkit/ui-library/components/textarea'
 import { OPENROUTER_MODELS } from '@sokoban-eval-toolkit/utils'
 import { AI_MOVE_DELAY } from '@src/constants'
 import {
@@ -784,6 +785,55 @@ export function AIPanel({
               </Label>
             </div>
           </div>
+        </div>
+
+        {/* Special Instructions */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="specialInstructions" className="text-xs">
+              Special Instructions
+            </Label>
+            <div className="flex items-center gap-1.5">
+              <Checkbox
+                id="includeSpecialInstructions"
+                checked={promptOptions.includeSpecialInstructions ?? false}
+                onCheckedChange={(checked) =>
+                  setPromptOptions((prev) => ({
+                    ...prev,
+                    includeSpecialInstructions: !!checked,
+                  }))
+                }
+                disabled={
+                  isRunning || plannedMoves.length > 0 || !promptOptions.specialInstructions?.trim()
+                }
+                className="h-3 w-3"
+              />
+              <Label
+                htmlFor="includeSpecialInstructions"
+                className={`text-[10px] ${isRunning || plannedMoves.length > 0 || !promptOptions.specialInstructions?.trim() ? 'text-muted-foreground cursor-default' : 'cursor-pointer'}`}
+              >
+                Include in Prompt
+              </Label>
+            </div>
+          </div>
+          <Textarea
+            id="specialInstructions"
+            placeholder="Add custom instructions to append to the prompt..."
+            value={promptOptions.specialInstructions ?? ''}
+            onChange={(e) => {
+              const value = e.target.value
+              setPromptOptions((prev) => ({
+                ...prev,
+                specialInstructions: value,
+                // Auto-enable when user types, but don't auto-disable when cleared
+                includeSpecialInstructions: value.trim()
+                  ? (prev.includeSpecialInstructions ?? true)
+                  : prev.includeSpecialInstructions,
+              }))
+            }}
+            disabled={isRunning || plannedMoves.length > 0}
+            className="min-h-[60px] text-xs resize-none"
+          />
         </div>
 
         <Separator />
