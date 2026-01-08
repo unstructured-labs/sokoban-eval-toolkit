@@ -1,0 +1,21 @@
+{
+  "name": "@sokoban-eval-toolkit/eval",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts",
+    "tsc": "tsc -b"
+  },
+  "dependencies": {
+    "@sokoban-eval-toolkit/utils": "workspace:*",
+    "picocolors": "^1.1.1",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/uuid": "^10.0.0",
+    "bun-types": "^1.3.3",
+    "typescript": "^5.6.3"
+  }
+}

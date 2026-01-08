@@ -1,0 +1,1015 @@
+{
+  "exportedAt": 1767909301503,
+  "version": 1,
+  "puzzles": [
+    {
+      "id": "59f1e6d5-c222-43bf-be20-eb4d41e25f0e",
+      "name": "Basic 1",
+      "savedAt": 1767853147068,
+      "difficulty": "mixed-custom",
+      "width": 10,
+      "height": 10,
+      "terrain": [
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "wall", "wall", "wall", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "floor", "floor", "floor", "goal", "goal", "floor", "wall"],
+        ["wall", "wall", "floor", "floor", "floor", "floor", "goal", "goal", "floor", "wall"],
+        ["wall", "wall", "wall", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "floor", "floor", "wall"],
+        ["wall", "goal", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "wall", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
+      ],
+      "playerStart": {
+        "x": 1,
+        "y": 8
+      },
+      "boxStarts": [
+        {
+          "x": 7,
+          "y": 6,
+          "color": "purple"
+        },
+        {
+          "x": 6,
+          "y": 7,
+          "color": "purple"
+        },
+        {
+          "x": 6,
+          "y": 5,
+          "color": "orange"
+        },
+        {
+          "x": 5,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "color": "orange"
+        }
+      ],
+      "goals": [
+        {
+          "x": 6,
+          "y": 2
+        },
+        {
+          "x": 7,
+          "y": 2
+        },
+        {
+          "x": 6,
+          "y": 3
+        },
+        {
+          "x": 7,
+          "y": 3
+        },
+        {
+          "x": 1,
+          "y": 7
+        }
+      ],
+      "order": 0
+    },
+    {
+      "id": "89c5a73c-2ea5-4ce4-89f4-e01cdb78991d",
+      "name": "Basic 2",
+      "savedAt": 1767853151531,
+      "difficulty": "mixed-custom",
+      "width": 10,
+      "height": 10,
+      "terrain": [
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "wall", "wall", "floor", "floor", "floor", "goal", "goal", "goal", "wall"],
+        ["wall", "wall", "wall", "floor", "floor", "floor", "goal", "goal", "wall", "wall"],
+        ["wall", "wall", "wall", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "floor", "wall", "wall", "wall", "wall", "floor", "floor", "wall"],
+        ["wall", "goal", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "wall", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
+      ],
+      "playerStart": {
+        "x": 2,
+        "y": 6
+      },
+      "boxStarts": [
+        {
+          "x": 7,
+          "y": 6,
+          "color": "purple"
+        },
+        {
+          "x": 6,
+          "y": 7,
+          "color": "purple"
+        },
+        {
+          "x": 6,
+          "y": 5,
+          "color": "orange"
+        },
+        {
+          "x": 5,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "color": "orange"
+        },
+        {
+          "x": 8,
+          "y": 2,
+          "color": "purple"
+        }
+      ],
+      "goals": [
+        {
+          "x": 6,
+          "y": 2
+        },
+        {
+          "x": 7,
+          "y": 2
+        },
+        {
+          "x": 8,
+          "y": 2
+        },
+        {
+          "x": 6,
+          "y": 3
+        },
+        {
+          "x": 7,
+          "y": 3
+        },
+        {
+          "x": 1,
+          "y": 7
+        }
+      ],
+      "order": 1
+    },
+    {
+      "id": "e780924b-02e1-4d1f-aa03-414ea2605d0a",
+      "name": "Basic 3",
+      "savedAt": 1767853173421,
+      "difficulty": "eval-easy",
+      "width": 9,
+      "height": 9,
+      "terrain": [
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "floor", "floor", "goal", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "wall", "goal", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "goal", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "wall", "wall", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "goal", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
+      ],
+      "playerStart": {
+        "x": 3,
+        "y": 4
+      },
+      "boxStarts": [
+        {
+          "x": 2,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 3,
+          "y": 5,
+          "color": "orange"
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "color": "sky"
+        },
+        {
+          "x": 2,
+          "y": 6,
+          "color": "orange"
+        }
+      ],
+      "goals": [
+        {
+          "x": 7,
+          "y": 3
+        },
+        {
+          "x": 7,
+          "y": 4
+        },
+        {
+          "x": 7,
+          "y": 5
+        },
+        {
+          "x": 5,
+          "y": 7
+        }
+      ],
+      "order": 2
+    },
+    {
+      "id": "03b6193b-2eb4-4a83-b224-b178cfefedae",
+      "name": "Basic 4",
+      "savedAt": 1767853226539,
+      "difficulty": "eval-easy",
+      "width": 10,
+      "height": 10,
+      "terrain": [
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "goal", "floor", "floor", "goal", "floor", "goal", "floor", "floor", "wall"],
+        ["wall", "floor", "goal", "floor", "floor", "floor", "goal", "floor", "floor", "wall"],
+        ["wall", "floor", "wall", "floor", "wall", "floor", "goal", "wall", "floor", "wall"],
+        ["wall", "floor", "wall", "floor", "floor", "floor", "wall", "wall", "floor", "wall"],
+        ["wall", "floor", "wall", "floor", "floor", "floor", "wall", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "wall", "floor", "floor", "wall"],
+        ["wall", "floor", "wall", "wall", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
+      ],
+      "playerStart": {
+        "x": 5,
+        "y": 7
+      },
+      "boxStarts": [
+        {
+          "x": 5,
+          "y": 6,
+          "color": "orange"
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "color": "orange"
+        },
+        {
+          "x": 3,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 3,
+          "y": 6,
+          "color": "orange"
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "color": "orange"
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "color": "purple"
+        }
+      ],
+      "goals": [
+        {
+          "x": 1,
+          "y": 1
+        },
+        {
+          "x": 4,
+          "y": 1
+        },
+        {
+          "x": 6,
+          "y": 1
+        },
+        {
+          "x": 2,
+          "y": 2
+        },
+        {
+          "x": 6,
+          "y": 2
+        },
+        {
+          "x": 6,
+          "y": 3
+        }
+      ],
+      "order": 3
+    },
+    {
+      "id": "a7e98799-2e7c-4ddf-93be-9248f8c244c2",
+      "name": "Row Order 1",
+      "savedAt": 1767853197375,
+      "difficulty": "mixed-custom",
+      "width": 10,
+      "height": 10,
+      "terrain": [
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "wall", "floor", "floor", "floor", "floor", "wall", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "wall", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "goal", "goal", "goal", "goal", "goal", "wall"],
+        ["wall", "floor", "wall", "floor", "wall", "wall", "wall", "floor", "floor", "wall"],
+        ["wall", "wall", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
+      ],
+      "playerStart": {
+        "x": 8,
+        "y": 3
+      },
+      "boxStarts": [
+        {
+          "x": 2,
+          "y": 3,
+          "color": "orange"
+        },
+        {
+          "x": 3,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "color": "purple"
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "color": "purple"
+        },
+        {
+          "x": 4,
+          "y": 7,
+          "color": "orange"
+        }
+      ],
+      "goals": [
+        {
+          "x": 4,
+          "y": 5
+        },
+        {
+          "x": 5,
+          "y": 5
+        },
+        {
+          "x": 6,
+          "y": 5
+        },
+        {
+          "x": 7,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 5
+        }
+      ],
+      "order": 4
+    },
+    {
+      "id": "0e382618-c6e5-4823-ad89-99d238d6422a",
+      "name": "Row Order 2",
+      "savedAt": 1767853200606,
+      "difficulty": "mixed-custom",
+      "width": 10,
+      "height": 10,
+      "terrain": [
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "wall", "floor", "floor", "floor", "floor", "wall", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "wall", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "wall", "floor", "goal", "floor", "goal", "goal", "goal", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "wall", "wall", "floor", "floor", "wall"],
+        ["wall", "wall", "floor", "floor", "floor", "floor", "goal", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
+      ],
+      "playerStart": {
+        "x": 8,
+        "y": 3
+      },
+      "boxStarts": [
+        {
+          "x": 2,
+          "y": 3,
+          "color": "orange"
+        },
+        {
+          "x": 3,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "color": "purple"
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "color": "purple"
+        },
+        {
+          "x": 4,
+          "y": 7,
+          "color": "orange"
+        }
+      ],
+      "goals": [
+        {
+          "x": 4,
+          "y": 5
+        },
+        {
+          "x": 6,
+          "y": 5
+        },
+        {
+          "x": 7,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 5
+        },
+        {
+          "x": 6,
+          "y": 7
+        }
+      ],
+      "order": 5
+    },
+    {
+      "id": "83613f5b-66cb-4a79-a93a-474b05952c1a",
+      "name": "Golden Rectangle",
+      "savedAt": 1767769868120,
+      "difficulty": "mixed-custom",
+      "width": 13,
+      "height": 8,
+      "terrain": [
+        [
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall"
+        ],
+        [
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "floor",
+          "floor",
+          "wall",
+          "wall",
+          "wall",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "goal",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "floor",
+          "floor",
+          "wall",
+          "wall",
+          "wall",
+          "floor",
+          "wall",
+          "wall",
+          "wall",
+          "floor",
+          "wall",
+          "wall"
+        ],
+        [
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "wall",
+          "floor",
+          "wall",
+          "wall"
+        ],
+        [
+          "wall",
+          "goal",
+          "goal",
+          "goal",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "wall",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall"
+        ]
+      ],
+      "playerStart": {
+        "x": 11,
+        "y": 6
+      },
+      "boxStarts": [
+        {
+          "x": 9,
+          "y": 3,
+          "color": "orange"
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "color": "orange"
+        },
+        {
+          "x": 6,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 7,
+          "y": 2,
+          "color": "purple"
+        }
+      ],
+      "goals": [
+        {
+          "x": 1,
+          "y": 3
+        },
+        {
+          "x": 1,
+          "y": 6
+        },
+        {
+          "x": 2,
+          "y": 6
+        },
+        {
+          "x": 3,
+          "y": 6
+        }
+      ],
+      "order": 6
+    },
+    {
+      "id": "373a8bb5-3100-45f4-a2c0-5166b1e57d27",
+      "name": "Triangle Logic",
+      "savedAt": 1767825402538,
+      "difficulty": "mixed-custom",
+      "width": 9,
+      "height": 13,
+      "terrain": [
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "floor", "floor", "floor", "wall", "floor", "wall"],
+        ["wall", "goal", "goal", "goal", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "goal", "goal", "wall", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "goal", "wall", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "wall", "wall", "floor", "wall", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "floor", "wall", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
+      ],
+      "playerStart": {
+        "x": 1,
+        "y": 11
+      },
+      "boxStarts": [
+        {
+          "x": 5,
+          "y": 10,
+          "color": "orange"
+        },
+        {
+          "x": 6,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "color": "emerald"
+        },
+        {
+          "x": 6,
+          "y": 8,
+          "color": "purple"
+        },
+        {
+          "x": 2,
+          "y": 6,
+          "color": "orange"
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "color": "sky"
+        }
+      ],
+      "goals": [
+        {
+          "x": 1,
+          "y": 3
+        },
+        {
+          "x": 2,
+          "y": 3
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 2,
+          "y": 4
+        },
+        {
+          "x": 3,
+          "y": 4
+        },
+        {
+          "x": 3,
+          "y": 5
+        }
+      ],
+      "order": 7
+    },
+    {
+      "id": "8390df60-4aa9-45bf-a994-319f9dd10720",
+      "name": "Conclave",
+      "savedAt": 1767783250602,
+      "difficulty": "mixed-custom",
+      "width": 15,
+      "height": 9,
+      "terrain": [
+        [
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall"
+        ],
+        [
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "goal",
+          "floor",
+          "floor",
+          "wall",
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "floor",
+          "wall",
+          "wall",
+          "floor",
+          "floor",
+          "goal",
+          "floor",
+          "floor",
+          "goal",
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "floor",
+          "wall",
+          "floor",
+          "floor",
+          "wall",
+          "wall",
+          "floor",
+          "goal",
+          "goal",
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "wall",
+          "wall",
+          "wall",
+          "floor",
+          "wall",
+          "wall",
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "floor",
+          "floor",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "floor",
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "wall",
+          "wall"
+        ],
+        [
+          "wall",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "floor",
+          "wall",
+          "wall",
+          "floor",
+          "floor",
+          "wall"
+        ],
+        [
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall",
+          "wall"
+        ]
+      ],
+      "playerStart": {
+        "x": 13,
+        "y": 7
+      },
+      "boxStarts": [
+        {
+          "x": 3,
+          "y": 6,
+          "color": "emerald"
+        },
+        {
+          "x": 12,
+          "y": 2,
+          "color": "emerald"
+        },
+        {
+          "x": 2,
+          "y": 5,
+          "color": "orange"
+        },
+        {
+          "x": 6,
+          "y": 6,
+          "color": "orange"
+        },
+        {
+          "x": 12,
+          "y": 4,
+          "color": "purple"
+        }
+      ],
+      "goals": [
+        {
+          "x": 6,
+          "y": 1
+        },
+        {
+          "x": 6,
+          "y": 2
+        },
+        {
+          "x": 9,
+          "y": 2
+        },
+        {
+          "x": 8,
+          "y": 3
+        },
+        {
+          "x": 9,
+          "y": 3
+        }
+      ],
+      "order": 8
+    },
+    {
+      "id": "cde1edfa-1a3d-47df-b367-a53e6c4b3d73",
+      "name": "Tall Stack",
+      "savedAt": 1767853231919,
+      "difficulty": "mixed-custom",
+      "width": 10,
+      "height": 15,
+      "terrain": [
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "goal", "wall", "wall", "wall"],
+        ["wall", "floor", "wall", "wall", "wall", "floor", "goal", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "goal", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "goal", "wall", "wall", "wall"],
+        ["wall", "wall", "wall", "floor", "wall", "floor", "goal", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "wall", "wall", "floor", "wall", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "floor", "floor", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "floor", "floor", "wall", "wall", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "floor", "floor", "wall", "wall", "wall"],
+        ["wall", "wall", "floor", "floor", "wall", "floor", "wall", "wall", "floor", "wall"],
+        ["wall", "floor", "floor", "wall", "wall", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "floor", "floor", "floor", "wall", "floor", "wall"],
+        ["wall", "floor", "floor", "floor", "wall", "floor", "floor", "floor", "floor", "wall"],
+        ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
+      ],
+      "playerStart": {
+        "x": 8,
+        "y": 10
+      },
+      "boxStarts": [
+        {
+          "x": 5,
+          "y": 10,
+          "color": "orange"
+        },
+        {
+          "x": 5,
+          "y": 6,
+          "color": "sky"
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "color": "orange"
+        },
+        {
+          "x": 2,
+          "y": 9,
+          "color": "sky"
+        },
+        {
+          "x": 2,
+          "y": 7,
+          "color": "orange"
+        }
+      ],
+      "goals": [
+        {
+          "x": 6,
+          "y": 1
+        },
+        {
+          "x": 6,
+          "y": 2
+        },
+        {
+          "x": 6,
+          "y": 3
+        },
+        {
+          "x": 6,
+          "y": 4
+        },
+        {
+          "x": 6,
+          "y": 5
+        }
+      ],
+      "order": 9
+    }
+  ]
+}

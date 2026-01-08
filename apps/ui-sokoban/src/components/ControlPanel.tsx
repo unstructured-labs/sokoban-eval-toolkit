@@ -2,12 +2,13 @@ import { Button } from '@sokoban-eval-toolkit/ui-library/components/button'
 import { Separator } from '@sokoban-eval-toolkit/ui-library/components/separator'
 import type { GameState, HumanSession } from '@src/types'
 import { isSimpleDeadlock } from '@src/utils/gameEngine'
-import type { SavedLayout } from '@src/utils/layoutStorage'
+import { type SavedLayout, downloadAllLayouts } from '@src/utils/layoutStorage'
 import {
   AlertTriangle,
   Check,
   ChevronLeft,
   ChevronRight,
+  Download,
   GripVertical,
   Pencil,
   Trash2,
@@ -249,6 +250,19 @@ export function ControlPanel({
             </div>
 
             {/* Saved layouts list */}
+            {/* Export All button */}
+            {savedLayouts.length > 0 && (
+              <Button
+                onClick={downloadAllLayouts}
+                size="sm"
+                variant="outline"
+                className="w-full h-7 text-xs gap-1.5"
+              >
+                <Download className="w-3 h-3" />
+                Export All ({savedLayouts.length})
+              </Button>
+            )}
+
             {savedLayouts.length > 0 ? (
               <div className="space-y-1">
                 {savedLayouts.map((layout, index) => {

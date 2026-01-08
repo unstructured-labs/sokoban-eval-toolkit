@@ -131,3 +131,47 @@ export function renameLayout(oldName: string, newName: string): SavedLayout | nu
 
   return renamedLayout
 }
+
+/**
+ * Export format for puzzle files.
+ */
+export interface ExportedPuzzles {
+  exportedAt: number
+  version: 1
+  puzzles: SavedLayout[]
+}
+
+/**
+ * Export all saved layouts as a JSON string for download.
+ */
+export function exportAllLayouts(): string {
+  const layouts = getSavedLayoutsList()
+  const exportData: ExportedPuzzles = {
+    exportedAt: Date.now(),
+    version: 1,
+    puzzles: layouts,
+  }
+  return JSON.stringify(exportData, null, 2)
+}
+
+/**
+ * Trigger a download of all saved layouts as a JSON file.
+ */
+export function downloadAllLayouts(): void {
+  if (typeof window === 'undefined') return
+
+  const json = exportAllLayouts()
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+
+  const timestamp = new Date().toISOString().split('T')[0]
+  const filename = `sokoban-puzzles-${timestamp}.json`
+
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}

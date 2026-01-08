@@ -170,4 +170,9 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
     name: 'DeepSeek V3.2 Speciale',
     description: 'DeepSeek V3.2 Speciale model',
   },
+  {
+    id: 'minimax/minimax-m2.1',
+    name: 'MiniMax M2.1',
+    description: 'MiniMax M2.1 model',
+  },
 ]

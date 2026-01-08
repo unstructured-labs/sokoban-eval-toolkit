@@ -6,6 +6,7 @@
   "scripts": {
     "env:setup": "find apps packages -mindepth 1 -maxdepth 1 -type d -exec cp .env {} \\;",
     "dev": "bun --env-file=.env --cwd apps/ui-sokoban dev",
+    "eval": "bun --env-file=.env run apps/eval/src/index.ts",
     "build": "bun run --filter '*' build",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
