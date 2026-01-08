@@ -4,9 +4,7 @@
   "completedAt": 1767912321147,
   "puzzleFile": "Microban",
   "puzzleCount": 10,
-  "models": [
-    "x-ai/grok-4.1-fast"
-  ],
+  "models": ["x-ai/grok-4.1-fast"],
   "options": {
     "concurrency": 10
   },
@@ -543,15 +541,7 @@
       "solved": false,
       "error": "Invalid move at step 1: RIGHT",
       "inferenceTimeMs": 401030,
-      "moves": [
-        "RIGHT",
-        "LEFT",
-        "LEFT",
-        "RIGHT",
-        "RIGHT",
-        "LEFT",
-        "LEFT"
-      ],
+      "moves": ["RIGHT", "LEFT", "LEFT", "RIGHT", "RIGHT", "LEFT", "LEFT"],
       "solutionLength": 7,
       "stepsExecuted": 0,
       "inputTokens": 610,

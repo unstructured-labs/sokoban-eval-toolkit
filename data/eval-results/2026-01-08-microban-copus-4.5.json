@@ -4,9 +4,7 @@
   "completedAt": 1767914620252,
   "puzzleFile": "Microban",
   "puzzleCount": 10,
-  "models": [
-    "anthropic/claude-opus-4.5"
-  ],
+  "models": ["anthropic/claude-opus-4.5"],
   "options": {
     "concurrency": 10
   },
@@ -19,17 +17,7 @@
       "solved": false,
       "error": "Invalid move at step 5: DOWN",
       "inferenceTimeMs": 23189,
-      "moves": [
-        "RIGHT",
-        "RIGHT",
-        "DOWN",
-        "LEFT",
-        "DOWN",
-        "LEFT",
-        "UP",
-        "UP",
-        "UP"
-      ],
+      "moves": ["RIGHT", "RIGHT", "DOWN", "LEFT", "DOWN", "LEFT", "UP", "UP", "UP"],
       "solutionLength": 9,
       "stepsExecuted": 4,
       "inputTokens": 484,

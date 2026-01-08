@@ -4,9 +4,7 @@
   "completedAt": 1767914665412,
   "puzzleFile": "./data/puzzles.json",
   "puzzleCount": 10,
-  "models": [
-    "anthropic/claude-opus-4.5"
-  ],
+  "models": ["anthropic/claude-opus-4.5"],
   "options": {
     "concurrency": 10
   },

@@ -4,9 +4,7 @@
   "completedAt": 1767913482865,
   "puzzleFile": "Microban",
   "puzzleCount": 10,
-  "models": [
-    "openai/gpt-5.2"
-  ],
+  "models": ["openai/gpt-5.2"],
   "options": {
     "concurrency": 10
   },

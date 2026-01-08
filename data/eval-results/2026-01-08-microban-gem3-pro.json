@@ -4,9 +4,7 @@
   "completedAt": 1767912417284,
   "puzzleFile": "Microban",
   "puzzleCount": 10,
-  "models": [
-    "google/gemini-3-pro-preview"
-  ],
+  "models": ["google/gemini-3-pro-preview"],
   "options": {
     "concurrency": 10
   },

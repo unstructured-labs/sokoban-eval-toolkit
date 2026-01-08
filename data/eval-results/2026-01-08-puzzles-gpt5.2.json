@@ -4,9 +4,7 @@
   "completedAt": 1767915054007,
   "puzzleFile": "./data/puzzles.json",
   "puzzleCount": 10,
-  "models": [
-    "openai/gpt-5.2"
-  ],
+  "models": ["openai/gpt-5.2"],
   "options": {
     "concurrency": 10
   },
