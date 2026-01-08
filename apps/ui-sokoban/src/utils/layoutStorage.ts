@@ -102,3 +102,32 @@ export function reorderLayouts(orderedNames: string[]): void {
 
   localStorage.setItem(LAYOUTS_STORAGE_KEY, JSON.stringify(layouts))
 }
+
+/**
+ * Rename a layout. Returns the updated layout or null if rename failed.
+ */
+export function renameLayout(oldName: string, newName: string): SavedLayout | null {
+  if (typeof window === 'undefined') return null
+  if (!newName.trim() || oldName === newName) return null
+
+  const layouts = getSavedLayouts()
+  const layout = layouts[oldName]
+  if (!layout) return null
+
+  // Check if new name already exists
+  if (layouts[newName]) return null
+
+  // Create renamed layout
+  const renamedLayout: SavedLayout = {
+    ...layout,
+    name: newName.trim(),
+    savedAt: Date.now(),
+  }
+
+  // Remove old and add new
+  delete layouts[oldName]
+  layouts[newName] = renamedLayout
+  localStorage.setItem(LAYOUTS_STORAGE_KEY, JSON.stringify(layouts))
+
+  return renamedLayout
+}

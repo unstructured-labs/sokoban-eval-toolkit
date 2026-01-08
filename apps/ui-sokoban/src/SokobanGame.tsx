@@ -64,6 +64,7 @@ export function SokobanGame() {
     handleLoadLayout,
     handleDeleteLayout,
     handleReorderLayouts,
+    handleRenameLayout,
   } = useLayoutPersistence({
     gameState,
     onLayoutLoad: (level: SokobanLevel) => {
@@ -106,81 +107,83 @@ export function SokobanGame() {
   const [humanSession, setHumanSession] = useState<HumanSession | null>(null)
   const sessionLevelIdRef = useRef<string | null>(null)
 
-  // Start a human player session
+  // Start a human player session (clears any existing session)
   const handleStartSession = useCallback(() => {
     if (!gameState) return
 
     // Reset the puzzle first
     handleReset()
 
+    // Start fresh session
+    const levelId = gameState.level.id
     setHumanSession({
       isActive: true,
       startTime: Date.now(),
       totalSteps: 0,
-      levelId: gameState.level.id,
-      solutionPath: [{ ...gameState.playerPos }],
+      stepsAtLastReset: 0,
+      restarts: 0,
+      levelId,
     })
-    sessionLevelIdRef.current = gameState.level.id
+    sessionLevelIdRef.current = levelId
   }, [gameState, handleReset])
 
-  // End the human player session
+  // End the human player session (but keep stats visible)
   const handleEndSession = useCallback(() => {
+    setHumanSession((prev) => (prev ? { ...prev, isActive: false, endTime: Date.now() } : null))
+  }, [])
+
+  // Clear session data entirely
+  const clearSession = useCallback(() => {
     setHumanSession(null)
     sessionLevelIdRef.current = null
   }, [])
 
-  // Track steps during session
+  // Track steps during session (cumulative across resets)
   useEffect(() => {
     if (!humanSession?.isActive || !gameState) return
 
-    const currentSteps = gameState.moveHistory.length
-    const currentPath = [
-      gameState.level.playerStart,
-      ...gameState.moveHistory.map((m) => {
-        // Calculate position after each move
-        const idx = gameState.moveHistory.indexOf(m)
-        const prevMoves = gameState.moveHistory.slice(0, idx + 1)
-        const pos = { ...gameState.level.playerStart }
-        for (const move of prevMoves) {
-          if (move.direction === 'UP') pos.y--
-          else if (move.direction === 'DOWN') pos.y++
-          else if (move.direction === 'LEFT') pos.x--
-          else if (move.direction === 'RIGHT') pos.x++
-        }
-        return pos
-      }),
-    ]
-
     setHumanSession((prev) => {
       if (!prev) return null
-      // Calculate total steps including previous attempts
-      const stepsBeforeThisAttempt = prev.totalSteps - (prev.solutionPath.length - 1)
       return {
         ...prev,
-        totalSteps: stepsBeforeThisAttempt + currentSteps,
-        solutionPath: currentPath,
+        totalSteps: prev.stepsAtLastReset + gameState.moveHistory.length,
       }
     })
   }, [gameState?.moveHistory.length, humanSession?.isActive, gameState])
 
-  // Reset ends the session
+  // Reset clears completed session stats, but keeps active session running
   const handleSessionReset = useCallback(() => {
-    if (humanSession?.isActive) {
-      handleEndSession()
+    if (humanSession) {
+      if (humanSession.isActive) {
+        // Save current steps and increment restart count
+        setHumanSession((prev) =>
+          prev ? { ...prev, stepsAtLastReset: prev.totalSteps, restarts: prev.restarts + 1 } : null,
+        )
+      } else {
+        // Clear completed session stats
+        clearSession()
+      }
     }
     handleReset()
-  }, [humanSession?.isActive, handleReset, handleEndSession])
+  }, [humanSession, handleReset, clearSession])
 
-  // Auto-stop session on level change (but not on edit)
+  // Auto-clear session on level change (but not on edit)
   useEffect(() => {
-    if (!humanSession?.isActive) return
+    if (!humanSession) return
 
     const currentLevelId = gameState?.level.id
     if (currentLevelId && currentLevelId !== sessionLevelIdRef.current) {
-      // Level changed, end session
+      // Level changed, clear session entirely
+      clearSession()
+    }
+  }, [gameState?.level.id, humanSession, clearSession])
+
+  // Auto-end session when puzzle is won
+  useEffect(() => {
+    if (humanSession?.isActive && gameState?.isWon) {
       handleEndSession()
     }
-  }, [gameState?.level.id, humanSession?.isActive, handleEndSession])
+  }, [gameState?.isWon, humanSession?.isActive, handleEndSession])
 
   // Load first LMIQ puzzle on mount
   useEffect(() => {
@@ -329,6 +332,7 @@ export function SokobanGame() {
               }}
               onDeleteLayout={handleDeleteLayout}
               onReorderLayouts={handleReorderLayouts}
+              onRenameLayout={handleRenameLayout}
               selectedLayoutName={selectedLayoutName}
               onSelectedLayoutChange={setSelectedLayoutName}
               humanSession={humanSession}
@@ -460,9 +464,6 @@ export function SokobanGame() {
             onDragEnd={handleDragEnd}
             isDragging={isDraggingWalls}
             addMode={addMode}
-            solutionPath={
-              gameState?.isWon && humanSession?.isActive ? humanSession.solutionPath : undefined
-            }
           />
 
           {/* Legend */}
@@ -498,20 +499,6 @@ export function SokobanGame() {
               <div className="text-green-400/70 text-xs mt-0.5">
                 {gameState.moveHistory.filter((m) => m.wasPush).length} pushes
               </div>
-              {/* Session stats when won during a session */}
-              {humanSession?.isActive && (
-                <div className="mt-2 pt-2 border-t border-green-500/20">
-                  <div className="text-green-400/90 text-xs">
-                    Session: {humanSession.totalSteps} steps · {(() => {
-                      const ms = Date.now() - humanSession.startTime
-                      const seconds = Math.floor(ms / 1000)
-                      const minutes = Math.floor(seconds / 60)
-                      const secs = seconds % 60
-                      return `${minutes}:${secs.toString().padStart(2, '0')}`
-                    })()}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

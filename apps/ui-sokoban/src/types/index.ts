@@ -86,9 +86,11 @@ export interface SolutionValidationResult {
 export interface HumanSession {
   isActive: boolean
   startTime: number
-  totalSteps: number
+  endTime?: number // Set when session ends
+  totalSteps: number // Cumulative steps across all attempts
+  stepsAtLastReset: number // Steps accumulated before current attempt
+  restarts: number // Number of times reset during session
   levelId: string
-  solutionPath: Position[] // Path taken in the winning attempt
 }
 
 // AI prompt options

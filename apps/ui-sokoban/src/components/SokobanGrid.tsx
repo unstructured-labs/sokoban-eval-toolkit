@@ -11,7 +11,6 @@ interface SelectedEntity {
 interface SokobanGridProps {
   state: GameState | null
   highlightedCells?: Position[]
-  solutionPath?: Position[] // Path taken to solve (shown as trail markers)
   className?: string
   isEditing?: boolean
   onCellClick?: (x: number, y: number) => void
@@ -26,7 +25,6 @@ interface SokobanGridProps {
 export function SokobanGrid({
   state,
   highlightedCells = [],
-  solutionPath = [],
   className = '',
   isEditing = false,
   onCellClick,
@@ -63,17 +61,6 @@ export function SokobanGrid({
   const isBoxOnGoal = (x: number, y: number) => isBox(x, y) && isGoal(x, y)
 
   const isPlayer = (x: number, y: number) => playerPos.x === x && playerPos.y === y
-
-  // Get the step numbers for a cell in the solution path (can have multiple if revisited)
-  const getPathStepsAt = (x: number, y: number): number[] => {
-    const steps: number[] = []
-    solutionPath.forEach((pos, idx) => {
-      if (pos.x === x && pos.y === y) {
-        steps.push(idx)
-      }
-    })
-    return steps
-  }
 
   const gridWidth = level.width * CELL_SIZE
   const gridHeight = level.height * CELL_SIZE
@@ -194,39 +181,6 @@ export function SokobanGrid({
                     }}
                   />
                 )}
-
-                {/* Solution path markers */}
-                {solutionPath.length > 0 &&
-                  (() => {
-                    const pathSteps = getPathStepsAt(x, y)
-                    if (pathSteps.length === 0) return null
-                    // Show step number (last step at this position)
-                    const stepNum = pathSteps[pathSteps.length - 1]
-                    const isStart = stepNum === 0
-                    const isEnd = stepNum === solutionPath.length - 1
-                    return (
-                      <div
-                        className="absolute flex items-center justify-center pointer-events-none z-10"
-                        style={{ inset: 0 }}
-                      >
-                        <div
-                          className={`flex items-center justify-center text-[8px] font-bold rounded-full ${
-                            isStart
-                              ? 'bg-blue-500/80 text-white'
-                              : isEnd
-                                ? 'bg-green-500/80 text-white'
-                                : 'bg-purple-500/50 text-white'
-                          }`}
-                          style={{
-                            width: isStart || isEnd ? 18 : 14,
-                            height: isStart || isEnd ? 18 : 14,
-                          }}
-                        >
-                          {stepNum}
-                        </div>
-                      </div>
-                    )
-                  })()}
 
                 {/* Goal hint when covered by player */}
                 {cellIsGoal && cellIsPlayer && (

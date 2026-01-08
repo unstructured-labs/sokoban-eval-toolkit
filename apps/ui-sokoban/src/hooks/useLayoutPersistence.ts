@@ -5,6 +5,7 @@ import {
   getSavedLayoutsList,
   layoutExists,
   loadLayout,
+  renameLayout,
   reorderLayouts,
   saveLayout,
 } from '@src/utils/layoutStorage'
@@ -24,6 +25,7 @@ interface UseLayoutPersistenceReturn {
   handleLoadLayout: (name: string) => void
   handleDeleteLayout: (name: string) => void
   handleReorderLayouts: (fromIndex: number, toIndex: number) => void
+  handleRenameLayout: (oldName: string, newName: string) => boolean
 }
 
 export function useLayoutPersistence({
@@ -166,6 +168,39 @@ export function useLayoutPersistence({
     [savedLayouts],
   )
 
+  // Rename a saved layout
+  const handleRenameLayout = useCallback(
+    (oldName: string, newName: string): boolean => {
+      if (!newName.trim()) {
+        alert('Please enter a valid name.')
+        return false
+      }
+
+      if (layoutExists(newName.trim()) && oldName !== newName.trim()) {
+        alert(`A layout named "${newName.trim()}" already exists.`)
+        return false
+      }
+
+      try {
+        const result = renameLayout(oldName, newName.trim())
+        if (result) {
+          setSavedLayouts(getSavedLayoutsList())
+          // If the renamed layout was currently loaded, update the layout name
+          if (layoutName === oldName) {
+            setLayoutName(newName.trim())
+          }
+          return true
+        }
+        return false
+      } catch (error) {
+        console.error('Failed to rename layout:', error)
+        alert('Failed to rename layout. Please try again.')
+        return false
+      }
+    },
+    [layoutName],
+  )
+
   return {
     savedLayouts,
     layoutName,
@@ -174,5 +209,6 @@ export function useLayoutPersistence({
     handleLoadLayout,
     handleDeleteLayout,
     handleReorderLayouts,
+    handleRenameLayout,
   }
 }
