@@ -100,3 +100,7 @@ bun format        # Format code
 2. **AI Evaluation**: Sends the puzzle state to an LLM with configurable prompts. The AI returns a solution in Sokoban notation (UDLR), which is parsed and executed move-by-move with visual feedback.
 
 3. **Solver**: A* search at the push level - only expands states when boxes are pushed, using Manhattan distance heuristic. Includes deadlock detection (corner traps, freeze patterns) to prune the search space.
+
+# License
+
+MIT
